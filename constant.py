@@ -1,0 +1,1 @@
+HASHFILE = "__hashes.txt"
