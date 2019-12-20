@@ -1,137 +1,13 @@
 import os
-import hashlib
-import shutil
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-import constant
-from HashDb import *
 from Logger import *
-from DirScanner import *
 from DuplicateFinder import *
+from DuplicateMover import *
+from Collector import *
 
-
-class HashedFolder:
-
-    def __init__(self, path):
-        self.path = path
-        self.db = None
-        self.child_db_map = {}
-        self.dirScanner = DirScanner()
-        pass
-
-    def add_subfolder(self, filepath):
-        new_db = HashedFolder(filepath)
-        self.child_db_map[filepath] = new_db
-        return new_db
-
-    def load(self):
-        self.dirScanner.scan(self.path)
-        self.db = HashDb(self.path, log)
-        self.db.load()
-
-        for infile in self.dirScanner.get_directories():
-            filepath = os.path.join(self.path, infile)
-            db = self.add_subfolder(filepath)
-            db.load()
-
-    def get_hash_from_file(self, filename):
-        try:
-            sha256_hash = hashlib.sha256()
-            with open(filename, "rb") as f:
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
-            return sha256_hash.hexdigest()
-        except:
-            log.info("hash failed for %s" % filename)
-            return None
-
-    def scan(self, recursive):
-        log.info("Scan: %s" % self.path)
-        for infile in self.dirScanner.get_files():
-            filepath = os.path.join(self.path, infile)
-            hash = self.db.find_filename(infile)
-            if None == hash:
-                hash = self.get_hash_from_file(filepath)
-                log.info("Add: %s : %s" % (str(hash), str(filepath)))
-                self.db.add(infile, hash)
-            else:
-                #print ("Skip: %s : %s" % (str(hash), str(filepath)))
-                pass
-        self.db.save()
-        #print("Finished scan files in %s" % self.path)
-
-        if recursive:
-            for childFolder in self.child_db_map.values():
-                childFolder.scan(recursive)
-
-        pass
-
-    def find_hash(self, hash):
-        path = self.db.find_hash(hash)
-        if None != path:
-            path = os.path.join(self.db.path, path)
-        else:
-            for childFolder in self.child_db_map.values():
-                path = childFolder.find_hash(hash)
-                if None != path:
-                    break
-        return path
-
-    def find_duplicate_file(self, filepath):
-        path = None
-        hash = self.get_hash_from_file(filepath)
-        if None != hash:
-            path = self.find_hash(hash)
-
-        #print("Found %s => %s" % (filepath, path))
-        return path
-
-
-class DuplicateMover:
-
-    def __init__(self, hashedFolder):
-        self.hashedFolder = hashedFolder
-        pass
-
-    def move_file(self, src, dest, filename):
-        os.makedirs(dest, exist_ok=True)
-        src_path = os.path.join(src, filename)
-        dest_path = os.path.join(dest, filename)
-        shutil.move(src_path, dest_path)
-
-    def move_duplicates(self, src_dir, duplicate_dir):
-        scanner = DirScanner()
-        scanner.scan(src_dir)
-        for infile in scanner.get_files():
-            filepath = os.path.join(src_dir, infile)
-            found_path = self.hashedFolder.find_duplicate_file(filepath)
-            if None != found_path:
-                log.info("Move %s from %s to %s. Found in %s" %
-                         (infile, src_dir, duplicate_dir, found_path))
-                self.move_file(src_dir, duplicate_dir, infile)
-            else:
-                log.info("Keep %s" % filepath)
-
-        for inpath in scanner.get_directories():
-            src_path_child = os.path.join(src_dir, inpath)
-            dup_path_child = os.path.join(duplicate_dir, inpath)
-            self.move_duplicates(src_path_child, dup_path_child)
-        pass
-
-
-
-def doit():
-    checker = HashedFolder(r'C:\data\pictures')
-    checker.load()
-    checker.scan()
-    mover = DuplicateMover(checker)
-    #mover.move_duplicates(r'C:\data\test_pic', r'C:\data\test_pic_dup')
-    log.info("end")
-
-
-# doit()
 
 class App(QWidget):
 
@@ -143,7 +19,6 @@ class App(QWidget):
         self.width = 800
         self.height = 600
         self.init_ui()
-        self.checker = None
 
     def init_ui(self):
         self.setWindowTitle(self.title)
@@ -178,6 +53,9 @@ class App(QWidget):
 
         log.logInfo = self.log
         self.ui = log
+        self.collector = Collector(self.ui)
+        self.mover = DuplicateMover(self.ui)
+        self.mover_dest_dir = None
 
         self.show()
 
@@ -185,40 +63,45 @@ class App(QWidget):
         self.logger.appendPlainText(msg)
 
 
-    def handle_find_duplicates(self, path):
-        finder = DuplicateFinder(log)
-        finder.find(self.checker)
+    def handle_dummy(self, path):
+        pass
+
+    def handle_collector_add_dir(self, path, recursive, doScan):
+        self.ui.info("")
+        self.collector.add_dir(path, recursive = recursive, doScan = doScan)
+
+    def handle_find_duplicates_in_hashes(self, path):
+        finder = DuplicateFinder(self.ui)
+        finder.find_duplicates(self.collector)
         finder.show_duplicates()
 
+    def handle_set_mover_dest_dir(self, path):
+        self.mover_dest_dir = path
 
-    def handleScan(self, path):
-        log.info("handleScan: %s" % path)
-        self.checker = HashedFolder(path)
-        self.checker.load()
-        self.checker.scan(False)
+    def handle_move_duplicates(self, srcDir, recursive, simulate):
+        self.mover.move_duplicates(self.collector, srcDir = srcDir, duplicateDir=self.mover_dest_dir, recursive=recursive, simulate=simulate)
 
-    def handleScanRecursive(self, path):
-        log.info("handleScanRecursive: %s" % path)
 
     def openMenu(self, position):
 
         i = self.tree.currentIndex()
-        # print(self.model.filePath(i))
         selectedPath = self.model.filePath(i)
 
-        indexes = self.tree.selectedIndexes()
-        if len(indexes) > 0:
-            level = 0
-            index = indexes[0]
-            while index.parent().isValid():
-                index = index.parent()
-                level += 1
 
         menu = QMenu()
-        menu.addAction("Scan", lambda: self.handleScan(selectedPath))
-        menu.addAction("Scan recursive",
-                       lambda: self.handleScanRecursive(selectedPath))
-        menu.addAction("Find duplicates", lambda: self.handle_find_duplicates(selectedPath))
+        menu.addAction("Load hash", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = False))
+        menu.addAction("Load hash recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
+        menu.addAction("Calc hash", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
+        menu.addAction("Calc hash recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
+        menu.addAction("Find duplicates in hashes", lambda: self.handle_find_duplicates_in_hashes(selectedPath))
+        menu.addAction("Find duplicates in dir", lambda: self.handle_find_duplicates_in_hashes(selectedPath))
+
+        menu.addAction("Set move duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
+        menu.addAction("Move duplicates", lambda: self.handle_move_duplicates(selectedPath, recursive = False, simulate = False))
+        menu.addAction("Move duplicates recursive", lambda: self.handle_move_duplicates(selectedPath, recursive = True, simulate = False))
+        menu.addAction("Move duplicates (simulate)", lambda: self.handle_move_duplicates(selectedPath, recursive = False, simulate = True))
+        menu.addAction("Move duplicates recursive (simulate)", lambda: self.handle_move_duplicates(selectedPath, recursive = True, simulate = True))
+
         menu.exec_(self.tree.viewport().mapToGlobal(position))
 
 

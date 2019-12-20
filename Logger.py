@@ -1,6 +1,8 @@
 
 class Logger:
     def __init__(self):
+        self.logInfo = print
+        self.logError = print
         pass
 
     def error(self, str):

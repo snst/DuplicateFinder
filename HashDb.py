@@ -1,25 +1,41 @@
 import os
 import constant
+import common
 
 
-class HashDb:
+class HashDB:
 
     def __init__(self, path, ui):
         self.path = path
         self.map = {}
         self.ui = ui
         self.name = os.path.join(self.path, constant.HASHFILE)
+        self.modified = False
 
     def add(self, filename, hash):
         self.map[hash] = filename
+        self.modified = True
+
+    def scan(self, skipExisting):
+        files = common.get_file_list(self.path)
+        for item in files:
+            if skipExisting and None != self.find_filename(item):
+                self.ui.info("Skip hashing: %s" % item)
+            else:
+                filepath = os.path.join(self.path, item)
+                hash = common.get_hash_from_file(filepath, self.ui)
+                self.add(item, hash)
 
     def save(self):
-        try:
-            f = open(self.name, 'w')
-            f.write(str(self.map))
-            f.close()
-        except:
-            self.ui.error("Failed to save: %s" % self.name)
+        if self.modified:
+            try:
+                self.ui.info("Save hashes: %s" % self.name)
+                f = open(self.name, 'w')
+                f.write(str(self.map))
+                f.close()
+                self.modified = False
+            except:
+                self.ui.error("Failed to save: %s" % self.name)
 
     def load(self):
         try:
