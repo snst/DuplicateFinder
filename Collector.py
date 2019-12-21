@@ -24,6 +24,7 @@ class Collector(QThread):
     def clear(self):
         self.map = {}
 
+
     def add_dir(self, path, recursive, doScan, skipExisting = True):
         self.argPath = path
         self.argRecursive = recursive
@@ -50,22 +51,31 @@ class Collector(QThread):
         self.add_dir_impl()
 
 
+    def skip_dir(self, path):
+        return os.path.isfile(os.path.join(path, constant.NOHASHFILE))
+
+
     def add_dir_impl(self):
         self.ui.info("Loading hash DB %sfrom: %s" % ('recursively ' if self.argRecursive else '', self.argPath))
         dirList = [self.argPath]
         loadedCnt = 0
+        skipCnt = 0
         if self.argRecursive:
             dirList.extend(common.get_dir_list_absolute(self.argPath, self.argRecursive))
 
         for dir in dirList:
             dir = os.path.normpath(dir)
-            db = self.get_db(dir)
-            if db.load():
-                loadedCnt += 1
-            if self.argDoScan:
-                db.scan(self.argSkipExisting)
-            db.save()
-        self.ui.info("Finished loading %d hash DB." % loadedCnt)
+            if self.skip_dir(dir):
+                self.ui.debug("Skipping dir: %s" % dir)
+                skipCnt +=1
+            else:
+                db = self.get_db(dir)
+                if db.load():
+                    loadedCnt += 1
+                if self.argDoScan:
+                    db.scan(self.argSkipExisting)
+                db.save()
+        self.ui.info("Finished loading %d hash DB. Skipped %d." % (loadedCnt, skipCnt))
 
 
     def remove_hash(self, path, hash):

@@ -35,6 +35,18 @@ class DuplicateFinder(QThread):
         self.ui.info("Finished finding duplicates.")
 
 
+    def find_duplicates_in_folder(self, path):
+        self.map = {}
+        files = common.get_file_list(path)
+        self.ui.info("Scannning %d files for duplicates in %s" % (len(files), path))
+        for item in files:
+            self.ui.info("Hashing: %s" % item)
+            filepath = os.path.normpath(os.path.join(path, item))
+            hash = common.get_hash_from_file(filepath, self.ui)
+            self.add_hash(hash, filepath)
+        self.ui.info("Finished finding duplicates.")
+
+
     def show_duplicates(self):
         self.ui.info("Found duplicates:")
         cntHashes = 0
@@ -48,6 +60,17 @@ class DuplicateFinder(QThread):
                     cntDuplicates += 1
 
         self.ui.info("Finished finding duplicates. %d hashes, %d files" % (cntHashes, cntDuplicates))
+
+
+    def find_and_show_duplicates_in_folder_impl(self):
+        self.find_duplicates_in_folder(self.argPath)
+        self.show_duplicates()
+
+    def find_and_show_duplicates_in_folder(self, path):
+        self.argPath = path
+        self.worker = self.find_and_show_duplicates_in_folder_impl
+        self.start()
+        #self.worker()
 
     def find_and_show_duplicates_impl(self):
         self.find_duplicates(self.collector)
