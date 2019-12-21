@@ -23,6 +23,7 @@ class DuplicateFinder(QThread):
         
 
     def find_duplicates(self, collector):
+        self.ui.info("Finding duplicates...")
         self.map = {}
         if None == collector:
             self.ui.error("First scan folder")
@@ -31,16 +32,22 @@ class DuplicateFinder(QThread):
                 for hash, name in db.map.items():
                     filepath = os.path.normpath(os.path.join(db.path, name))
                     self.add_hash(hash, filepath)
+        self.ui.info("Finished finding duplicates.")
 
 
     def show_duplicates(self):
-        self.ui.info("\nFound duplicates:")
+        self.ui.info("Found duplicates:")
+        cntHashes = 0
+        cntDuplicates = 0
         for hash, files in self.map.items():
             if len(files) > 1:
+                cntHashes += 1
                 self.ui.info("\n%s" % hash)
                 for filename in files:
                     self.ui.info("%s" % filename)
+                    cntDuplicates += 1
 
+        self.ui.info("Finished finding duplicates. %d hashes, %d files" % (cntHashes, cntDuplicates))
 
     def find_and_show_duplicates_impl(self):
         self.find_duplicates(self.collector)
@@ -64,20 +71,22 @@ class DuplicateFinder(QThread):
         self.wait()
 
     def run(self):
-        self.ui.info("Thread started")
         if None != self.worker:
             self.worker()
-        self.ui.info("Thread finished")   
 
 
     def find_and_move_duplicates_impl(self):
-        self.ui.info("Start move duplicates:\nMaster dir: %s\nDuplicate dir: %s" % (self.argMasterPath, self.argDuplicatePath))
+        self.ui.info("Start moving duplicates...")
+        cntMoved = 0
+        cntMovedError = 0
         for hash, files in self.map.items():
             if len(files) > 1:
                 filesToMove = []
+                masterFile = None
                 for filename in files:
                     if filename.startswith(self.argMasterPath):
-                        self.ui.info("Found master: %s" % filename)
+                        #self.ui.info("Found master: %s" % filename)
+                        masterFile = filename
                         filesToMove = list(files)
                         filesToMove.remove(filename)
                         break
@@ -87,13 +96,16 @@ class DuplicateFinder(QThread):
                         path = "." + os.path.splitdrive(srcPath)[1]
                         path = os.path.normpath(path)
                         destPath = os.path.join(self.argDuplicatePath, path)
+                        self.ui.info("Move %s to %s - Master: %s" % (srcPath, destPath, masterFile))
                         common.move_file2(srcPath, destPath, self.argSimulate, self.ui)
+                        cntMoved += 1
                         if not self.argSimulate:
                             dirName = os.path.dirname(srcPath)
                             self.collector.remove_hash(dirName, hash)
                     except:
                         self.ui.info("Error moving: %s" % srcPath)
+                        cntMovedError += 1
                         pass
 
                             
-        self.ui.info("Finished move duplicates")
+        self.ui.info("Finished moving %d duplicates. Errors: %d" % (cntMoved, cntMovedError))

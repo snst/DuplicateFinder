@@ -42,7 +42,7 @@ def get_dir_list_absolute(path, recursive):
 
 
 def move_file2(srcPath, destPath, simulate, ui):
-    ui.info("Move %s to %s" % (srcPath, destPath))
+    ui.debug("Move %s to %s" % (srcPath, destPath))
     if not simulate:
         try:
             destDir = os.path.dirname(destPath)
@@ -51,6 +51,6 @@ def move_file2(srcPath, destPath, simulate, ui):
 
             shutil.move(srcPath, destPath)
         except:
-            ui.info("Failed to move %s to %s" %
+            ui.error("Failed to move %s to %s" %
                 (srcPath, destPath))
             pass

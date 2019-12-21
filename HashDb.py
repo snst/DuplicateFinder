@@ -38,7 +38,7 @@ class HashDB:
         for item in files:
             hash = self.find_filename(item)
             if skipExisting and None != hash:
-                self.ui.info("Skip hashing: %s" % item)
+                self.ui.debug("Skip hashing: %s" % item)
             else:
                 self.ui.info("Hashing: %s" % item)
                 filepath = os.path.join(self.path, item)
@@ -72,10 +72,12 @@ class HashDB:
             data = f.read()
             f.close()
             self.map = eval(data)
-            self.ui.info("Loaded: %s" % self.name)
+            self.ui.debug("Loaded: %s" % self.name)
+            return True
         except:
-            self.ui.info("Failed to load: %s " % self.name)
+            self.ui.debug("Failed to load: %s " % self.name)
             self.map = {}
+            return False
 
 
     def find_filename(self, filename):

@@ -47,23 +47,25 @@ class Collector(QThread):
 
 
     def run(self):
-        self.ui.info("Thread started")
         self.add_dir_impl()
-        self.ui.info("Thread finished")
 
 
     def add_dir_impl(self):
+        self.ui.info("Loading hash DB %sfrom: %s" % ('recursively ' if self.argRecursive else '', self.argPath))
         dirList = [self.argPath]
+        loadedCnt = 0
         if self.argRecursive:
             dirList.extend(common.get_dir_list_absolute(self.argPath, self.argRecursive))
 
         for dir in dirList:
             dir = os.path.normpath(dir)
             db = self.get_db(dir)
-            db.load()
+            if db.load():
+                loadedCnt += 1
             if self.argDoScan:
                 db.scan(self.argSkipExisting)
             db.save()
+        self.ui.info("Finished loading %d hash DB." % loadedCnt)
 
 
     def remove_hash(self, path, hash):

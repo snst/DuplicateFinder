@@ -7,6 +7,7 @@ from Logger import *
 from DuplicateFinder import *
 from DuplicateMover import *
 from Collector import *
+import subprocess
 
 
 class App(QWidget):
@@ -41,10 +42,58 @@ class App(QWidget):
         self.tree.resize(800, 600)
         self.tree.setColumnWidth(0, 400)
 
-        self.logEdit = QPlainTextEdit(self)
-        self.logEdit.setReadOnly(True)
+        #self.logEdit = QPlainTextEdit(self)
+        #self.logEdit.setReadOnly(True)
+        self.logEdit = QListWidget()
+
+        cmdLayout = QHBoxLayout()
+
+        self.simulateOnlyCheckbox = QCheckBox("Simulate only")
+        self.simulateOnlyCheckbox.setChecked(True)
+        cmdLayout.addWidget(self.simulateOnlyCheckbox)
+
+        debugCheckBox = QCheckBox("Debug")
+        debugCheckBox.setChecked(False)
+        debugCheckBox.stateChanged.connect(lambda:self.handle_debug_checkbox(debugCheckBox))
+
+        cmdLayout.addWidget(debugCheckBox)
+
+        btn = QPushButton("Set master dir")
+        btn.clicked.connect(lambda:self.handle_set_master_dir())
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Move duplicates in DB")
+        btn.clicked.connect(lambda:self.handle_move_duplicates_in_hashes())
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Clear")
+        btn.clicked.connect(lambda:self.handle_clear(self))
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Save Hashes")
+        btn.clicked.connect(lambda:self.handle_save_modified_hashDB(self))
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Find duplicates in DB")
+        btn.clicked.connect(lambda:self.handle_find_duplicates_in_hashes())
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Clear DB")
+        btn.clicked.connect(lambda:self.handle_clear_db())
+        cmdLayout.addWidget(btn)
+        cmdWidget = QWidget()
+        cmdWidget.setLayout(cmdLayout)
+
+        btn = QPushButton("Open dir")
+        btn.clicked.connect(lambda:self.handle_open_dir())
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Open file")
+        btn.clicked.connect(lambda:self.handle_open_file())
+        cmdLayout.addWidget(btn)
 
         grid = QGridLayout()
+        
         grid.addWidget(QLabel("Duplicate dir:"), 0, 0)
         self.duplicateDesitinationDirEdit = QLineEdit(r'E:\_duplicates')
         grid.addWidget(self.duplicateDesitinationDirEdit, 0, 1)
@@ -53,40 +102,16 @@ class App(QWidget):
         self.masterDirEdit = QLineEdit(r'')
         grid.addWidget(self.masterDirEdit, 1, 1)
 
-        btn = QPushButton("Move duplicates in DB")
-        btn.clicked.connect(lambda:self.handle_move_duplicates_in_hashes())
-        grid.addWidget(btn, 1, 2)
 
+        bottomLayout = QVBoxLayout()
+        w = QWidget()
+        w.setLayout(grid)
+        bottomLayout.addWidget(w)
+        bottomLayout.addWidget(cmdWidget)
+        bottomLayout.addWidget(self.logEdit)
 
-        self.simulateOnlyCheckbox = QCheckBox("Simulate only")
-        self.simulateOnlyCheckbox.setChecked(True)
-        grid.addWidget(self.simulateOnlyCheckbox, 2, 0)
-
-        btn = QPushButton("Clear")
-        btn.clicked.connect(lambda:self.handle_clear(self))
-        grid.addWidget(btn, 2, 1)
-
-        btn = QPushButton("Save Hashes")
-        btn.clicked.connect(lambda:self.handle_save_modified_hashDB(self))
-        grid.addWidget(btn, 2, 2)
-
-        btn = QPushButton("Find duplicates in DB")
-        btn.clicked.connect(lambda:self.handle_find_duplicates_in_hashes())
-        grid.addWidget(btn, 2, 3)
-
-        btn = QPushButton("Clear DB")
-        btn.clicked.connect(lambda:self.handle_clear_db())
-        grid.addWidget(btn, 2, 4)
-
-        grid.addWidget(self.logEdit, 3,0, 1, 5)
-
-#        layoutBottom = QVBoxLayout()
-#        layoutBottom.addWidget(self.duplicateDesitinationDirEdit)
-#        layout = QVBoxLayout()
-#        layout.addWidget(box)
-#        layout.addWidget(self.logEdit)
         bottomWidget = QWidget()
-        bottomWidget.setLayout(grid)
+        bottomWidget.setLayout(bottomLayout)
 
 
         self.splitter.addWidget(self.tree)
@@ -102,14 +127,47 @@ class App(QWidget):
         self.finder = DuplicateFinder(self.collector, self.ui)
 
         logger.speak.connect(self.log)
+        logger.enableDebug(debugCheckBox.isChecked())
         self.show()
 
     @pyqtSlot(str)
     def log(self, msg):
-        self.logEdit.appendPlainText(msg)
+        #self.logEdit.appendPlainText(msg)
+        item = QListWidgetItem(msg)
+        self.logEdit.addItem(item)
 
     def handle_clear(self, a):
         self.logEdit.clear()
+
+    def handle_debug_checkbox(self, checkbox):
+        logger.enableDebug(checkbox.isChecked())
+
+    def getSelectedFilename(self):
+        items = self.logEdit.selectedItems()
+        if items:
+            txt = items[0].text()
+            if os.path.isfile(txt):
+                return txt
+        return None
+
+    def handle_set_master_dir(self):
+        str = ""
+        filename = self.getSelectedFilename()
+        if filename:
+           str = os.path.dirname(filename) + os.sep
+        self.masterDirEdit.setText(str)
+
+    def handle_open_dir(self):
+        filename = self.getSelectedFilename()
+        if filename:
+           str = os.path.dirname(filename) + os.sep
+           subprocess.Popen(r'explorer /select, ' + str)
+
+    def handle_open_file(self):
+        filename = self.getSelectedFilename()
+        if filename:
+           subprocess.Popen(r'explorer /select, ' + filename)
+
 
     def handle_save_modified_hashDB(self, a):
         self.collector.save_hashes(False)
