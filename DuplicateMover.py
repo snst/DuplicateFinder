@@ -1,11 +1,14 @@
 import shutil
 from Collector import *
+from PyQt5.QtCore import QThread
 
-class DuplicateMover:
+class DuplicateMover(QThread):
 
     def __init__(self, ui):
+        QThread.__init__(self)
         self.ui = ui
         pass
+
 
     def move_file(self, src, dest, filename, foundPath, simulate):
         self.ui.info("Move %s from %s to %s. Found in %s" %
@@ -16,7 +19,17 @@ class DuplicateMover:
             dest_path = os.path.join(dest, filename)
             shutil.move(src_path, dest_path)
 
+
     def move_duplicates(self, collector, srcDir, duplicateDir, recursive = True, simulate = True):
+        self.argCollector = collector
+        self.argSrcDir = srcDir
+        self.argDuplicateDir = duplicateDir
+        self.argRecursive = recursive
+        self.argSimulate = simulate
+        self.start()
+
+
+    def move_duplicates_impl(self, collector, srcDir, duplicateDir, recursive = True, simulate = True):
 
         if None == collector:
             self.ui.error("No hashes loaded")
@@ -48,3 +61,13 @@ class DuplicateMover:
                 else:
                     #self.ui.info("Keep %s" % filepath)
                     pass
+
+
+    def __del__(self):
+        self.wait()
+
+
+    def run(self):
+        self.ui.info("Thread started")
+        self.move_duplicates_impl(self.argCollector, self.argSrcDir, self.argDuplicateDir, self.argRecursive, self.argSimulate)
+        self.ui.info("Thread finished")   

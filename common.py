@@ -1,6 +1,7 @@
 import os
 import hashlib
 import constant
+import shutil
 
 def get_hash_from_file(filename, ui):
     try:
@@ -38,3 +39,18 @@ def get_dir_list_absolute(path, recursive):
                 data.extend(childList)
 
     return data        
+
+
+def move_file2(srcPath, destPath, simulate, ui):
+    ui.info("Move %s to %s" % (srcPath, destPath))
+    if not simulate:
+        try:
+            destDir = os.path.dirname(destPath)
+            if not os.path.exists(destDir):
+                os.makedirs(destDir, exist_ok=True)
+
+            shutil.move(srcPath, destPath)
+        except:
+            ui.info("Failed to move %s to %s" %
+                (srcPath, destPath))
+            pass

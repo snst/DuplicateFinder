@@ -3,14 +3,15 @@ import os
 import constant
 import common
 from HashDB import *
+from PyQt5.QtCore import QThread
 
-
-class Collector:
+class Collector(QThread):
 
     def __init__(self, ui):
+        QThread.__init__(self)
         self.map = {}
         self.ui = ui
-        pass
+
 
     def get_db(self, path):
         db = self.map.get(path)
@@ -19,17 +20,18 @@ class Collector:
             self.map[path] = db
         return db
 
-    def add_dir(self, path, recursive, doScan, skipExisting = True):
-        dirList = [path]
-        if recursive:
-            dirList.extend(common.get_dir_list_absolute(path, recursive))
 
-        for dir in dirList:
-            db = self.get_db(dir)
-            db.load()
-            if doScan:
-                db.scan(skipExisting)
-            db.save()
+    def clear(self):
+        self.map = {}
+
+    def add_dir(self, path, recursive, doScan, skipExisting = True):
+        self.argPath = path
+        self.argRecursive = recursive
+        self.argDoScan = doScan
+        self.argSkipExisting = skipExisting
+        self.start()
+        #self.run()
+
 
     def find_hash(self, hash):
         for path, db in self.map.items():
@@ -38,3 +40,43 @@ class Collector:
                 name = os.path.join(db.path, name)
                 return name
         return None
+
+
+    def __del__(self):
+        self.wait()
+
+
+    def run(self):
+        self.ui.info("Thread started")
+        self.add_dir_impl()
+        self.ui.info("Thread finished")
+
+
+    def add_dir_impl(self):
+        dirList = [self.argPath]
+        if self.argRecursive:
+            dirList.extend(common.get_dir_list_absolute(self.argPath, self.argRecursive))
+
+        for dir in dirList:
+            dir = os.path.normpath(dir)
+            db = self.get_db(dir)
+            db.load()
+            if self.argDoScan:
+                db.scan(self.argSkipExisting)
+            db.save()
+
+
+    def remove_hash(self, path, hash):
+        db = self.map.get(path)
+        if None == db:
+            self.ui.error("Collector.remove_hash: Error db not found: %s" % path)
+        else:
+            db.remove(hash)
+
+
+    def save_hashes(self, forceSave):
+        self.ui.info("Start save HashDB")
+        for path, db in self.map.items():
+            db.save(forceSave)
+        self.ui.info("Finished save HashDB")
+        pass
