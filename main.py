@@ -164,10 +164,10 @@ class App(QWidget):
             common.open_folder(filename)
 
     def handle_move_files(self, filenames):
+        moveFlat = self.is_do_move_flat()
         for filename in filenames:
-            name = os.path.basename(filename)
-            destfilename = os.path.join(self.get_mover_dest_dir(), name)
-            common.move_file(filename, destfilename, False, self.is_simulation(), self.ui)
+            destFilepath = common.create_duplicate_dest_path(filename, self.get_mover_dest_dir(), moveFlat)
+            common.move_file(filename, destFilepath, False, self.is_simulation(), self.ui)
 
     def handle_save_modified_hashDB(self, a):
         self.collector.save_hashes(False)
@@ -258,8 +258,8 @@ class App(QWidget):
         i = self.tree.currentIndex()
         selectedPath = os.path.normpath(self.model.filePath(i))
         menu = QMenu()
-        menu.addAction("Load HashDB recursively", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
-        menu.addAction("Scan dir recursively", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
+        menu.addAction("Load HashDB (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
+        menu.addAction("Scan dir (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
         menu.addAction("Load HashDB", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = False))
         menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
         menu.addSeparator()
@@ -271,10 +271,10 @@ class App(QWidget):
 
         #menu.addAction("Find duplicates in dir", lambda: self.handle_find_duplicates_in_hashes(selectedPath))
 
-        menu.addAction("Scan extern dir and move duplicates", lambda: self.handle_move_duplicates(selectedPath, recursive = False))
-        menu.addAction("Scan extern dir and move duplicates recursive", lambda: self.handle_move_duplicates(selectedPath, recursive = True))
+        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_move_duplicates(selectedPath, recursive = False))
+        menu.addAction("Scan extern dir for duplicates in HashDB (recursively)", lambda: self.handle_move_duplicates(selectedPath, recursive = True))
         menu.addSeparator()
-        menu.addAction("Find duplicates within folder (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
+        menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addSeparator()
         menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))
 
