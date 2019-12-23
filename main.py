@@ -57,31 +57,37 @@ class App(QWidget):
         self.simulateOnlyCheckbox.setChecked(True)
         cmdLayout.addWidget(self.simulateOnlyCheckbox)
 
+        self.moveFlatCheckbox =  QCheckBox("Move flat")
+        self.moveFlatCheckbox.setChecked(False)
+        cmdLayout.addWidget(self.moveFlatCheckbox)
+
         debugCheckBox = QCheckBox("Debug")
         debugCheckBox.setChecked(False)
         debugCheckBox.stateChanged.connect(lambda:self.handle_debug_checkbox(debugCheckBox))
 
         cmdLayout.addWidget(debugCheckBox)
 
-        btn = QPushButton("Move duplicates in DB")
-        btn.clicked.connect(lambda:self.handle_move_duplicates_in_hashes())
-        cmdLayout.addWidget(btn)
-
-        btn = QPushButton("Clear")
-        btn.clicked.connect(lambda:self.handle_clear())
-        cmdLayout.addWidget(btn)
-
-        btn = QPushButton("Save Hashes")
-        btn.clicked.connect(lambda:self.handle_save_modified_hashDB(self))
-        cmdLayout.addWidget(btn)
-
-        btn = QPushButton("Find duplicates in DB")
+        btn = QPushButton("Find duplicates in HashDB")
         btn.clicked.connect(lambda:self.handle_find_duplicates_in_hashes())
         cmdLayout.addWidget(btn)
 
-        btn = QPushButton("Clear DB")
+        btn = QPushButton("Move duplicates in HashDB")
+        btn.clicked.connect(lambda:self.handle_move_duplicates_in_hashes())
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Save HashDB")
+        btn.clicked.connect(lambda:self.handle_save_modified_hashDB(self))
+        cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Clear HashDB (RAM)")
         btn.clicked.connect(lambda:self.handle_clear_db())
         cmdLayout.addWidget(btn)
+
+        btn = QPushButton("Clear Log")
+        btn.clicked.connect(lambda:self.handle_clear())
+        cmdLayout.addWidget(btn)
+
+
         cmdWidget = QWidget()
         cmdWidget.setLayout(cmdLayout)
 
@@ -161,7 +167,7 @@ class App(QWidget):
         for filename in filenames:
             name = os.path.basename(filename)
             destfilename = os.path.join(self.get_mover_dest_dir(), name)
-            common.move_file2(filename, destfilename, False, self.is_simulation(), self.ui)
+            common.move_file(filename, destfilename, False, self.is_simulation(), self.ui)
 
     def handle_save_modified_hashDB(self, a):
         self.collector.save_hashes(False)
@@ -169,6 +175,9 @@ class App(QWidget):
 
     def is_simulation(self):
         return self.simulateOnlyCheckbox.isChecked()
+
+    def is_do_move_flat(self):
+        return self.moveFlatCheckbox.isChecked()
 
     def handle_dummy(self, path):
         pass
@@ -226,10 +235,10 @@ class App(QWidget):
         self.duplicateDesitinationDirEdit.setText(path)
         
 
-    def handle_move_duplicates(self, srcDir, recursive, simulate):
+    def handle_move_duplicates(self, srcDir, recursive):
         mover_dest_dir = self.get_mover_dest_dir()
         if None != mover_dest_dir:
-            self.mover.move_duplicates(self.collector, srcDir = srcDir, duplicateDir=mover_dest_dir, recursive=recursive, simulate=simulate)
+            self.mover.move_duplicates(self.collector, srcDir = srcDir, duplicateDir=mover_dest_dir, moveFlat=self.is_do_move_flat(), recursive=recursive, simulate=self.is_simulation())
 
     def openFinderMenu(self, position):
         menu = QMenu()
@@ -247,21 +256,27 @@ class App(QWidget):
     def openMenu(self, position):
 
         i = self.tree.currentIndex()
-        selectedPath = self.model.filePath(i)
+        selectedPath = os.path.normpath(self.model.filePath(i))
         menu = QMenu()
-        menu.addAction("Load hash", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = False))
-        menu.addAction("Load hash recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
+        menu.addAction("Load HashDB recursively", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
+        menu.addAction("Scan dir recursively", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
+        menu.addAction("Load HashDB", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = False))
         menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
-        menu.addAction("Scan dir recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
+        menu.addSeparator()
+        menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
+        menu.addSeparator()
+
         #menu.addAction("Find duplicates in loaded hashes", lambda: self.handle_find_duplicates_in_hashes())
         #menu.addAction("Move duplicates in loaded hashes", lambda: self.handle_move_duplicates_in_hashes())
 
         #menu.addAction("Find duplicates in dir", lambda: self.handle_find_duplicates_in_hashes(selectedPath))
 
-        menu.addAction("Set move duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
-        menu.addAction("Move duplicates", lambda: self.handle_move_duplicates(selectedPath, recursive = False, simulate = self.is_simulation()))
-        menu.addAction("Move duplicates recursive", lambda: self.handle_move_duplicates(selectedPath, recursive = True, simulate = self.is_simulation()))
-        menu.addAction("Find duplicates in folder", lambda: self.handle_find_duplicates_in_folder(selectedPath))
+        menu.addAction("Scan extern dir and move duplicates", lambda: self.handle_move_duplicates(selectedPath, recursive = False))
+        menu.addAction("Scan extern dir and move duplicates recursive", lambda: self.handle_move_duplicates(selectedPath, recursive = True))
+        menu.addSeparator()
+        menu.addAction("Find duplicates within folder (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
+        menu.addSeparator()
+        menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))
 
         menu.exec_(self.tree.viewport().mapToGlobal(position))
 

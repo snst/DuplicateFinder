@@ -56,8 +56,18 @@ def create_new_filename(filepath):
         cnt += 1
     return newfilepath
 
+"""
+def create_duplicate_dest_path(srcPath, duplicateDir, flat):
+    if flat:
 
-def move_file2(srcPath, destPath, overwrite, simulate, ui):
+                if moveFlat:
+                curDestDir = duplicateDir
+            else:
+                curDestDir = '.' + os.path.splitdrive(curSrcDir)[1]
+                curDestDir = os.path.join(duplicateDir, curDestDir)
+"""
+
+def move_file(srcPath, destPath, overwrite, simulate, ui):
     ui.info("Move %s to %s" % (srcPath, destPath))
     if not simulate:
         try:

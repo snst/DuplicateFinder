@@ -61,4 +61,4 @@ print(dirname)
 """
 
 ui = Logger2()
-common.move_file2(src, dest, False, False, ui)
+common.move_file(src, dest, False, False, ui)

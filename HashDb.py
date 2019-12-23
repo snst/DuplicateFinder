@@ -48,7 +48,7 @@ class HashDB:
             newMap[hash] = item
 
         for hash, name in self.map.items():
-            self.ui.info("Removing hash %s for not found file %s" % (hash, name))
+            self.ui.info("Removing hash for not found file %s - %s" % (name, hash))
             self.modified = True
         self.map = newMap
         pass

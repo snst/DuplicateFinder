@@ -56,7 +56,7 @@ class Collector(QThread):
 
 
     def add_dir_impl(self):
-        self.ui.info("Loading hash DB %sfrom: %s" % ('recursively ' if self.argRecursive else '', self.argPath))
+        self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if self.argRecursive else '', self.argPath))
         dirList = [self.argPath]
         loadedCnt = 0
         skipCnt = 0
@@ -75,7 +75,7 @@ class Collector(QThread):
                 if self.argDoScan:
                     db.scan(self.argSkipExisting)
                 db.save()
-        self.ui.info("Finished loading %d hash DB. Skipped %d." % (loadedCnt, skipCnt))
+        self.ui.info("Finished loading %d HashDB. Skipped %d." % (loadedCnt, skipCnt))
 
 
     def remove_hash(self, path, hash):
@@ -87,8 +87,8 @@ class Collector(QThread):
 
 
     def save_hashes(self, forceSave):
-        self.ui.info("Start save HashDB")
+        self.ui.info("Start saving HashDB")
         for path, db in self.map.items():
             db.save(forceSave)
-        self.ui.info("Finished save HashDB")
+        self.ui.info("Finished saving HashDB")
         pass

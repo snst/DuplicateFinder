@@ -1,6 +1,7 @@
 import shutil
 from Collector import *
 from PyQt5.QtCore import QThread
+import common
 
 class DuplicateMover(QThread):
 
@@ -11,7 +12,7 @@ class DuplicateMover(QThread):
 
 
     def move_file(self, src, dest, filename, foundPath, simulate):
-        self.ui.info("Move %s from %s to %s. Found in %s" %
+        self.ui.info("Move %s from %s to %s - Master %s" %
                     (filename, src, dest, foundPath))
         if not simulate:
             os.makedirs(dest, exist_ok=True)
@@ -20,19 +21,21 @@ class DuplicateMover(QThread):
             shutil.move(src_path, dest_path)
 
 
-    def move_duplicates(self, collector, srcDir, duplicateDir, recursive = True, simulate = True):
+    def move_duplicates(self, collector, srcDir, duplicateDir, moveFlat, recursive, simulate):
         self.argCollector = collector
         self.argSrcDir = srcDir
         self.argDuplicateDir = duplicateDir
+        self.argMoveFlat = moveFlat
         self.argRecursive = recursive
         self.argSimulate = simulate
-        self.start()
+        #self.start()
+        self.run()
 
 
-    def move_duplicates_impl(self, collector, srcDir, duplicateDir, recursive = True, simulate = True):
+    def move_duplicates_impl(self, collector, srcDir, duplicateDir, moveFlat, recursive, simulate):
 
         if None == collector:
-            self.ui.error("No hashes loaded")
+            self.ui.error("No HashDB loaded")
             return
 
         if None == srcDir:
@@ -49,18 +52,21 @@ class DuplicateMover(QThread):
 
         for curSrcDir in srcDirList:
             fileList = common.get_file_list(curSrcDir)
-            curDestDir = os.path.relpath(curSrcDir, srcDir)
-            #curDestDir = os.path.basename(curDestDir)
-            curDestDir = os.path.join(duplicateDir, curDestDir)
-            for infile in fileList:
-                filepath = os.path.join(curSrcDir, infile)
-                hash = common.get_hash_from_file(filepath, self.ui)
+            curDestDir = None
+            #curDestDir = os.path.relpath(curSrcDir, srcDir)
+            if moveFlat:
+                curDestDir = duplicateDir
+            else:
+                curDestDir = '.' + os.path.splitdrive(curSrcDir)[1]
+                curDestDir = os.path.join(duplicateDir, curDestDir)
+
+            for filename in fileList:
+                srcFilepath = os.path.join(curSrcDir, filename)
+                hash = common.get_hash_from_file(srcFilepath, self.ui)
                 found_file = collector.find_hash(hash)
                 if None != found_file:
-                    self.move_file(curSrcDir, curDestDir, infile, found_file, simulate)
-                else:
-                    #self.ui.info("Keep %s" % filepath)
-                    pass
+                    destFilePath = os.path.normpath(os.path.join(curDestDir, filename))
+                    common.move_file(srcFilepath, destFilePath, False, simulate, self.ui)
 
 
     def __del__(self):
@@ -68,6 +74,4 @@ class DuplicateMover(QThread):
 
 
     def run(self):
-        self.ui.info("Thread started")
-        self.move_duplicates_impl(self.argCollector, self.argSrcDir, self.argDuplicateDir, self.argRecursive, self.argSimulate)
-        self.ui.info("Thread finished")   
+        self.move_duplicates_impl(self.argCollector, self.argSrcDir, self.argDuplicateDir, self.argMoveFlat, self.argRecursive, self.argSimulate)

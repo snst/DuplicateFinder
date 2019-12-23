@@ -23,16 +23,16 @@ class DuplicateFinder(QThread):
         
 
     def find_duplicates(self, collector):
-        self.ui.info("Finding duplicates...")
+        self.ui.info("Start finding duplicates...")
         self.map = {}
         if None == collector:
-            self.ui.error("First scan folder")
+            self.ui.info("First scan folder")
         else:
             for path, db in collector.map.items():
                 for hash, name in db.map.items():
                     filepath = os.path.normpath(os.path.join(db.path, name))
                     self.add_hash(hash, filepath)
-        self.ui.info("Finished finding duplicates.")
+        self.ui.debug("Finished finding duplicates.")
 
 
     def find_duplicates_in_folder(self, path):
@@ -48,7 +48,7 @@ class DuplicateFinder(QThread):
 
 
     def show_duplicates(self):
-        self.ui.info("Found duplicates:")
+        self.ui.info("Duplicates found:")
         cntHashes = 0
         cntDuplicates = 0
         for hash, files in self.map.items():
@@ -58,6 +58,7 @@ class DuplicateFinder(QThread):
                 for filename in files:
                     self.ui.info("%s" % filename)
                     cntDuplicates += 1
+                cntDuplicates -= 1 # decrement for original
 
         self.ui.info("Finished finding duplicates. %d hashes, %d files" % (cntHashes, cntDuplicates))
 
@@ -120,7 +121,7 @@ class DuplicateFinder(QThread):
                         path = os.path.normpath(path)
                         destPath = os.path.join(self.argDuplicatePath, path)
                         self.ui.info("Move %s to %s - Master: %s" % (srcPath, destPath, masterFile))
-                        common.move_file2(srcPath, destPath, False, self.argSimulate, self.ui)
+                        common.move_file(srcPath, destPath, False, self.argSimulate, self.ui)
                         cntMoved += 1
                         if not self.argSimulate:
                             dirName = os.path.dirname(srcPath)
