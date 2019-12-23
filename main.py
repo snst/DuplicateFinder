@@ -47,6 +47,7 @@ class App(QWidget):
         #self.logEdit = QPlainTextEdit(self)
         #self.logEdit.setReadOnly(True)
         self.logEdit = QListWidget()
+        self.logEdit.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.logEdit.setContextMenuPolicy(Qt.CustomContextMenu)
         self.logEdit.customContextMenuRequested.connect(self.openFinderMenu)
 
@@ -135,23 +136,32 @@ class App(QWidget):
         logger.enableDebug(checkbox.isChecked())
 
     def get_selected_filename_from_finder(self):
+        filenames = []
         items = self.logEdit.selectedItems()
         if items:
-            txt = items[0].text()
-            if os.path.isfile(txt):
-                return txt
-        return None
+            for item in items:
+                txt = item.text()
+                if os.path.isfile(txt):
+                    filenames.append(txt)
+        return filenames
 
     def handle_set_master_dir(self, filename):
         str = os.path.dirname(filename) + os.sep
         self.masterDirEdit.setText(str)
 
-    def handle_open_folder(self, filename):
-        subprocess.Popen(r'explorer /select, ' + filename)
+    def handle_open_files(self, filenames):
+        for filename in filenames:
+            common.open_file(filename)
 
-    def handle_open_file(self, filename):
-        subprocess.Popen(r'explorer ' + filename)
+    def handle_open_folders(self, filenames):
+        for filename in filenames:
+            common.open_folder(filename)
 
+    def handle_move_files(self, filenames):
+        for filename in filenames:
+            name = os.path.basename(filename)
+            destfilename = os.path.join(self.get_mover_dest_dir(), name)
+            common.move_file2(filename, destfilename, False, self.is_simulation(), self.ui)
 
     def handle_save_modified_hashDB(self, a):
         self.collector.save_hashes(False)
@@ -224,12 +234,12 @@ class App(QWidget):
     def openFinderMenu(self, position):
         menu = QMenu()
         menu.addAction("Clear", lambda: self.handle_clear())
-        filename = self.get_selected_filename_from_finder()
-        if filename:
-            pass
-            menu.addAction("Set master dir", lambda: self.handle_set_master_dir(filename))
-            menu.addAction("Open", lambda: self.handle_open_file(filename))
-            menu.addAction("Open folder", lambda: self.handle_open_folder(filename))
+        filenames = self.get_selected_filename_from_finder()
+        if len(filenames):
+            menu.addAction("Set master dir", lambda: self.handle_set_master_dir(filenames[0]))
+            menu.addAction("Open", lambda: self.handle_open_files(filenames))
+            menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
+            menu.addAction("Move", lambda: self.handle_move_files(filenames))
             #menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
             #menu.addAction("Scan dir recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
         menu.exec_(self.logEdit.viewport().mapToGlobal(position))

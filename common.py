@@ -2,6 +2,8 @@ import os
 import hashlib
 import constant
 import shutil
+import subprocess
+
 
 def get_hash_from_file(filename, ui):
     try:
@@ -41,16 +43,40 @@ def get_dir_list_absolute(path, recursive):
     return data        
 
 
-def move_file2(srcPath, destPath, simulate, ui):
-    ui.debug("Move %s to %s" % (srcPath, destPath))
+def create_new_filename(filepath):
+    split_name = os.path.splitext(os.path.basename(filepath))
+    filename = split_name[0]
+    ext = split_name[1]
+    dirname = os.path.dirname(filepath)
+    cnt = 0
+    newfilepath = filepath
+    while os.path.isfile(newfilepath):
+        newname = filename + ("_%d" % cnt) + ext
+        newfilepath = os.path.join(dirname, newname)
+        cnt += 1
+    return newfilepath
+
+
+def move_file2(srcPath, destPath, overwrite, simulate, ui):
+    ui.info("Move %s to %s" % (srcPath, destPath))
     if not simulate:
         try:
             destDir = os.path.dirname(destPath)
             if not os.path.exists(destDir):
                 os.makedirs(destDir, exist_ok=True)
 
+            if not overwrite and os.path.isfile(destPath):
+                destPath = create_new_filename(destPath)
+                ui.info("Renamed moved file to %s" % destPath)
+
             shutil.move(srcPath, destPath)
         except:
             ui.error("Failed to move %s to %s" %
                 (srcPath, destPath))
             pass
+
+def open_file(filename):
+    subprocess.Popen(r'explorer ' + filename)
+
+def open_folder(filename):
+    subprocess.Popen(r'explorer /select, ' + filename)

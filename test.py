@@ -2,10 +2,20 @@ import common
 from Collector import *
 from DuplicateFinder import *
 from DuplicateMover import *
-from Logger import *
 
 
-path = r'C:\data\pictures\stubaital 7.09-10.09.2017'
+class Logger2:
+    def __init__(self):
+        pass
+    def error(self, str):
+        print(str)
+    def info(self, str):
+        print(str)
+    def debug(self, str):
+        print(str)
+
+
+
 
 def test_get_files():
     data = common.get_file_list(path)
@@ -39,11 +49,16 @@ mover = DuplicateMover(logger)
 mover.move_duplicates(collector, r'C:\data\test_pic', r'C:\data\test_pic_dup', simulate=False)
 """
 
-file = r'C:/data/pictures\stubaital 7.09-10.09.2017\a\ab\IMG_20170908_091152.jpg'
-dup = r'C:/data/test_pic_dup'
+src = r'E:\_aaa\a.jpg'
+dest = r'E:\_aaa\b\a.jpg'
 
+"""
 f = os.path.splitdrive(file)[1]
 filename = os.path.join(dup, f)
 dirname = os.path.dirname(filename)
 print(filename)
 print(dirname)
+"""
+
+ui = Logger2()
+common.move_file2(src, dest, False, False, ui)

@@ -120,7 +120,7 @@ class DuplicateFinder(QThread):
                         path = os.path.normpath(path)
                         destPath = os.path.join(self.argDuplicatePath, path)
                         self.ui.info("Move %s to %s - Master: %s" % (srcPath, destPath, masterFile))
-                        common.move_file2(srcPath, destPath, self.argSimulate, self.ui)
+                        common.move_file2(srcPath, destPath, False, self.argSimulate, self.ui)
                         cntMoved += 1
                         if not self.argSimulate:
                             dirName = os.path.dirname(srcPath)
