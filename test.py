@@ -1,7 +1,6 @@
 import common
 from Collector import *
 from DuplicateFinder import *
-from DuplicateMover import *
 
 
 class Logger2:
@@ -45,7 +44,7 @@ finder = DuplicateFinder(logger)
 finder.find_duplicates(collector)
 finder.show_duplicates()
 
-mover = DuplicateMover(logger)
+mover = DuplicateFindernExternDir(logger)
 mover.move_duplicates(collector, r'C:\data\test_pic', r'C:\data\test_pic_dup', simulate=False)
 """
 

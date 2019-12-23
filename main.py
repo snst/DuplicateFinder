@@ -5,7 +5,6 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from Logger import *
 from DuplicateFinder import *
-from DuplicateMover import *
 from Collector import *
 import subprocess
 
@@ -17,14 +16,14 @@ class App(QWidget):
         self.title = 'Duplicate Finder'
         self.left = 50
         self.top = 50
-        self.width = 800
-        self.height = 600
+        self.width = 1000
+        self.height = 800
         self.init_ui()
+
 
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        #file = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
         self.splitter = QSplitter(Qt.Vertical)
 
         self.model = QFileSystemModel()
@@ -44,8 +43,6 @@ class App(QWidget):
         self.tree.resize(800, 600)
         self.tree.setColumnWidth(0, 400)
 
-        #self.logEdit = QPlainTextEdit(self)
-        #self.logEdit.setReadOnly(True)
         self.logEdit = QListWidget()
         self.logEdit.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.logEdit.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -56,10 +53,6 @@ class App(QWidget):
         self.simulateOnlyCheckbox = QCheckBox("Simulate only")
         self.simulateOnlyCheckbox.setChecked(True)
         cmdLayout.addWidget(self.simulateOnlyCheckbox)
-
-        self.moveFlatCheckbox =  QCheckBox("Move flat")
-        self.moveFlatCheckbox.setChecked(False)
-        cmdLayout.addWidget(self.moveFlatCheckbox)
 
         debugCheckBox = QCheckBox("Debug")
         debugCheckBox.setChecked(False)
@@ -122,12 +115,12 @@ class App(QWidget):
 
         self.ui = logger
         self.collector = Collector(self.ui)
-        self.mover = DuplicateMover(self.ui)
         self.finder = DuplicateFinder(self.collector, self.ui)
 
         logger.speak.connect(self.log)
         logger.enableDebug(debugCheckBox.isChecked())
         self.show()
+
 
     @pyqtSlot(str)
     def log(self, msg):
@@ -135,11 +128,14 @@ class App(QWidget):
         item = QListWidgetItem(msg)
         self.logEdit.addItem(item)
 
+
     def handle_clear(self):
         self.logEdit.clear()
 
+
     def handle_debug_checkbox(self, checkbox):
         logger.enableDebug(checkbox.isChecked())
+
 
     def get_selected_filename_from_finder(self):
         filenames = []
@@ -151,49 +147,57 @@ class App(QWidget):
                     filenames.append(txt)
         return filenames
 
+
     def handle_set_master_dir(self, filename):
         str = os.path.dirname(filename) + os.sep
         self.masterDirEdit.setText(str)
+
 
     def handle_open_files(self, filenames):
         for filename in filenames:
             common.open_file(filename)
 
+
     def handle_open_folders(self, filenames):
         for filename in filenames:
             common.open_folder(filename)
 
-    def handle_move_files(self, filenames):
-        moveFlat = self.is_do_move_flat()
+
+    def handle_move_files(self, filenames, moveFlat):
         for filename in filenames:
             destFilepath = common.create_duplicate_dest_path(filename, self.get_mover_dest_dir(), moveFlat)
             common.move_file(filename, destFilepath, False, self.is_simulation(), self.ui)
+
 
     def handle_save_modified_hashDB(self, a):
         self.collector.save_hashes(False)
         pass
 
+
     def is_simulation(self):
         return self.simulateOnlyCheckbox.isChecked()
 
-    def is_do_move_flat(self):
-        return self.moveFlatCheckbox.isChecked()
 
     def handle_dummy(self, path):
         pass
 
+
     def handle_find_duplicates_in_folder(self, path):
         self.finder.find_and_show_duplicates_in_folder(path)
+
 
     def handle_collector_add_dir(self, path, recursive, doScan):
         self.ui.info("")
         self.collector.add_dir(path, recursive = recursive, doScan = doScan)
 
+
     def handle_find_duplicates_in_hashes(self):
         self.finder.find_and_show_duplicates()
 
+
     def handle_clear_db(self):
         self.collector.clear()
+
 
     def handle_move_duplicates_in_hashes(self):
         masterDir = self.get_master_dir()
@@ -201,6 +205,7 @@ class App(QWidget):
         if None != masterDir and None != destDir:
             self.finder.find_and_move_duplicates(masterDir, destDir, self.is_simulation())
         pass
+
 
     def get_master_dir(self):
         path = self.masterDirEdit.text()
@@ -235,10 +240,9 @@ class App(QWidget):
         self.duplicateDesitinationDirEdit.setText(path)
         
 
-    def handle_move_duplicates(self, srcDir, recursive):
-        mover_dest_dir = self.get_mover_dest_dir()
-        if None != mover_dest_dir:
-            self.mover.move_duplicates(self.collector, srcDir = srcDir, duplicateDir=mover_dest_dir, moveFlat=self.is_do_move_flat(), recursive=recursive, simulate=self.is_simulation())
+    def handle_find_extern_duplicates(self, srcDir, recursive):
+        self.collector.find_extern_duplicates(srcDir = srcDir, recursive=recursive, simulate=self.is_simulation())
+
 
     def openFinderMenu(self, position):
         menu = QMenu()
@@ -248,10 +252,10 @@ class App(QWidget):
             menu.addAction("Set master dir", lambda: self.handle_set_master_dir(filenames[0]))
             menu.addAction("Open", lambda: self.handle_open_files(filenames))
             menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
-            menu.addAction("Move", lambda: self.handle_move_files(filenames))
-            #menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
-            #menu.addAction("Scan dir recursive", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
+            menu.addAction("Move flat", lambda: self.handle_move_files(filenames, True))
+            menu.addAction("Move with path", lambda: self.handle_move_files(filenames, False))
         menu.exec_(self.logEdit.viewport().mapToGlobal(position))
+
 
     def openMenu(self, position):
 
@@ -265,14 +269,8 @@ class App(QWidget):
         menu.addSeparator()
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
         menu.addSeparator()
-
-        #menu.addAction("Find duplicates in loaded hashes", lambda: self.handle_find_duplicates_in_hashes())
-        #menu.addAction("Move duplicates in loaded hashes", lambda: self.handle_move_duplicates_in_hashes())
-
-        #menu.addAction("Find duplicates in dir", lambda: self.handle_find_duplicates_in_hashes(selectedPath))
-
-        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_move_duplicates(selectedPath, recursive = False))
-        menu.addAction("Scan extern dir for duplicates in HashDB (recursively)", lambda: self.handle_move_duplicates(selectedPath, recursive = True))
+        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = False))
+        menu.addAction("Scan extern dir for duplicates in HashDB (recursively)", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = True))
         menu.addSeparator()
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addSeparator()
