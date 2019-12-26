@@ -8,6 +8,7 @@ from DuplicateFinder import *
 from Collector import *
 import subprocess
 
+USER_ROLE_HASH = (Qt.UserRole + 1)
 
 class App(QWidget):
 
@@ -20,28 +21,42 @@ class App(QWidget):
         self.height = 800
         self.init_ui()
 
+    def create_file_model(self):
+        model = QFileSystemModel()
+        model.setRootPath('')
+        return model
+
+
+    def create_file_tree(self, model):
+        tree = QTreeView()
+        tree.setModel(model)
+        tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        #tree.customContextMenuRequested.connect(self.openMenu)
+        tree.setAnimated(False)
+        tree.setIndentation(20)
+        tree.setSortingEnabled(True)
+        tree.sortByColumn(0, Qt.AscendingOrder)
+        tree.setWindowTitle("Dir View")
+        tree.resize(800, 600)
+        tree.setColumnWidth(0, 400)
+        return tree
 
     def init_ui(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.splitter = QSplitter(Qt.Vertical)
+        self.splitter_file = QSplitter(Qt.Horizontal)
 
-        self.model = QFileSystemModel()
-        self.model.setRootPath('')
-        self.tree = QTreeView()
-        self.tree.setModel(self.model)
-        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree.customContextMenuRequested.connect(self.openMenu)
+        self.model_l = self.create_file_model()
+        self.tree_l = self.create_file_tree(self.model_l)
+        self.tree_l.customContextMenuRequested.connect(self.openMenuLeft)
 
-        self.tree.setAnimated(False)
-        self.tree.setIndentation(20)
-        self.tree.setSortingEnabled(True)
-        self.tree.sortByColumn(0, Qt.AscendingOrder)
+        self.model_r = self.create_file_model()
+        self.tree_r = self.create_file_tree(self.model_r)
+        self.tree_r.customContextMenuRequested.connect(self.openMenuRight)
 
-
-        self.tree.setWindowTitle("Dir View")
-        self.tree.resize(800, 600)
-        self.tree.setColumnWidth(0, 400)
+        self.splitter_file.addWidget(self.tree_l)
+        self.splitter_file.addWidget(self.tree_r)
 
         self.logEdit = QListWidget()
         self.logEdit.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -106,7 +121,7 @@ class App(QWidget):
         bottomWidget.setLayout(bottomLayout)
 
 
-        self.splitter.addWidget(self.tree)
+        self.splitter.addWidget(self.splitter_file)
         self.splitter.addWidget(bottomWidget)
 
         windowLayout = QVBoxLayout()
@@ -122,10 +137,12 @@ class App(QWidget):
         self.show()
 
 
-    @pyqtSlot(str)
-    def log(self, msg):
-        #self.logEdit.appendPlainText(msg)
+    @pyqtSlot(str, str)
+    def log(self, msg, hash):
         item = QListWidgetItem(msg)
+        if hash:
+            item.setData(USER_ROLE_HASH, hash)
+            pass
         self.logEdit.addItem(item)
 
 
@@ -186,9 +203,9 @@ class App(QWidget):
         self.finder.find_and_show_duplicates_in_folder(path)
 
 
-    def handle_collector_add_dir(self, path, recursive, doScan):
+    def handle_collector_add_dir(self, path, recursive, cmd):
         self.ui.info("")
-        self.collector.add_dir(path, recursive = recursive, doScan = doScan)
+        self.collector.add_dir(path, recursive = recursive, cmd = cmd)
 
 
     def handle_find_duplicates_in_hashes(self):
@@ -243,6 +260,18 @@ class App(QWidget):
     def handle_find_extern_duplicates(self, srcDir, recursive):
         self.collector.find_extern_duplicates(srcDir = srcDir, recursive=recursive, simulate=self.is_simulation())
 
+    def handle_show_duplicate_info(self, filename):
+        if os.path.isfile(filename):
+            hash = common.get_hash_from_file(filename, self.ui)
+            found = self.collector.find_hash(hash)
+            if found:
+                btn = QMessageBox.question(self, 'Show file?', "Found hash\n\n%s\n\nin\n\n%s" % (hash, found), QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if btn == QMessageBox.No:
+                    return
+                else:
+                    common.open_folder(found)
+            else:
+                pass
 
     def openFinderMenu(self, position):
         menu = QMenu()
@@ -250,6 +279,7 @@ class App(QWidget):
         filenames = self.get_selected_filename_from_finder()
         if len(filenames):
             menu.addAction("Set master dir", lambda: self.handle_set_master_dir(filenames[0]))
+            menu.addAction("Show duplicate info", lambda: self.handle_show_duplicate_info(filenames[0]))
             menu.addAction("Open", lambda: self.handle_open_files(filenames))
             menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
             menu.addAction("Move flat", lambda: self.handle_move_files(filenames, True))
@@ -257,15 +287,18 @@ class App(QWidget):
         menu.exec_(self.logEdit.viewport().mapToGlobal(position))
 
 
-    def openMenu(self, position):
+    def openMenu(self, tree, position):
 
-        i = self.tree.currentIndex()
-        selectedPath = os.path.normpath(self.model.filePath(i))
+        i = tree.currentIndex()
+        selectedPath = os.path.normpath(self.model_l.filePath(i))
         menu = QMenu()
-        menu.addAction("Load HashDB (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = False))
-        menu.addAction("Scan dir (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, doScan = True))
-        menu.addAction("Load HashDB", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = False))
-        menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, doScan = True))
+        menu.addAction("Load HashDB (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, cmd = CollectorCmd.load))
+        menu.addAction("Scan dir (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, cmd = CollectorCmd.scan))
+        menu.addAction("Verify hashes (recursively)", lambda: self.handle_collector_add_dir(selectedPath, recursive = True, cmd = CollectorCmd.verify))
+        menu.addAction("Load HashDB", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, cmd = CollectorCmd.load))
+        menu.addAction("Scan dir", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, cmd = CollectorCmd.scan))
+        menu.addAction("Verify hashes", lambda: self.handle_collector_add_dir(selectedPath, recursive = False, cmd = CollectorCmd.verify))
+
         menu.addSeparator()
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
         menu.addSeparator()
@@ -275,8 +308,15 @@ class App(QWidget):
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addSeparator()
         menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))
+        menu.exec_(tree.viewport().mapToGlobal(position))
 
-        menu.exec_(self.tree.viewport().mapToGlobal(position))
+
+    def openMenuLeft(self, position):
+        self.openMenu(self.tree_l, position)
+
+
+    def openMenuRight(self, position):
+        self.openMenu(self.tree_r, position)
 
 
 if __name__ == '__main__':

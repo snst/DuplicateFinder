@@ -4,6 +4,12 @@ import constant
 import common
 from HashDB import *
 from PyQt5.QtCore import QThread
+from enum import Enum
+
+class CollectorCmd(Enum):
+    load = 0
+    scan = 1
+    verify = 2
 
 class Collector(QThread):
 
@@ -25,10 +31,10 @@ class Collector(QThread):
         self.map = {}
 
 
-    def add_dir(self, path, recursive, doScan, skipExisting = True):
+    def add_dir(self, path, recursive, cmd, skipExisting = True):
         self.argPath = path
         self.argRecursive = recursive
-        self.argDoScan = doScan
+        self.argCmd = cmd
         self.argSkipExisting = skipExisting
         self.worker = self.add_dir_wrapper
         self.start()
@@ -66,30 +72,40 @@ class Collector(QThread):
 
 
     def add_dir_wrapper(self):
-        self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argDoScan)
+        self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argCmd)
 
 
-    def add_dir_impl(self, path, recursive, skipExisting, doScan):
-        self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
-        dirList = [path]
-        loadedCnt = 0
-        skipCnt = 0
+    def add_dir_impl2(self, path, recursive, skipExisting, cmd):
+        errorCnt = 0
+        dir = os.path.normpath(path)
+        if self.skip_dir(dir):
+            self.ui.info("Skipping dir: %s" % dir)
+            #skipCnt +=1
+            return 0
+    
+        db = self.get_db(dir)
+        if db.load():
+            #loadedCnt += 1
+            pass
+
+        if cmd is CollectorCmd.scan:
+            db.scan(skipExisting)
+            db.save()
+        elif cmd is CollectorCmd.verify:
+            errorCnt += db.verify()
+
         if recursive:
-            dirList.extend(common.get_dir_list_absolute(path, recursive))
+            dirList = []
+            dirList.extend(common.get_dir_list_absolute(path, False))
+            for dir in dirList:
+                errorCnt += self.add_dir_impl2(dir, recursive, skipExisting, cmd)
+        return errorCnt
 
-        for dir in dirList:
-            dir = os.path.normpath(dir)
-            if self.skip_dir(dir):
-                self.ui.debug("Skipping dir: %s" % dir)
-                skipCnt +=1
-            else:
-                db = self.get_db(dir)
-                if db.load():
-                    loadedCnt += 1
-                if doScan:
-                    db.scan(skipExisting)
-                db.save()
-        self.ui.info("Finished loading %d HashDB. Skipped %d." % (loadedCnt, skipCnt))
+
+    def add_dir_impl(self, path, recursive, skipExisting, cmd):
+        self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
+        errorCnt = self.add_dir_impl2(path, recursive, skipExisting, cmd)
+        self.ui.info("Finished loading HashDB. Errors: %d" % errorCnt)
 
 
     def remove_hash(self, path, hash):
@@ -134,6 +150,6 @@ class Collector(QThread):
                 found_file = self.find_hash(hash)
                 if None != found_file:
                     cntDuplicates += 1
-                    self.ui.info(srcFilepath)
+                    self.ui.info(srcFilepath, hash)
 
         self.ui.info("Finished finding duplicates. %d files" % (cntDuplicates))
