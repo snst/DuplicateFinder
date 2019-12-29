@@ -12,6 +12,7 @@ class DuplicateFinder(QThread):
         self.worker = None
         pass
 
+
     def add_hash(self, hash, filepath):
         value = self.map.get(hash)
         if None == value:
@@ -22,17 +23,19 @@ class DuplicateFinder(QThread):
         return value
         
 
-    def find_duplicates(self, collector):
-        self.ui.info("Start finding duplicates...")
+    def find_duplicates_in_hashDB(self, collector):
+        self.ui.info("Start finding duplicates in HashDB...")
         self.map = {}
+        cnt_files = 0
         if None == collector:
-            self.ui.info("First scan folder")
+            self.ui.error("No HashDB loaded")
         else:
             for path, db in collector.map.items():
                 for hash, name in db.map.items():
                     filepath = os.path.normpath(os.path.join(db.path, name))
                     self.add_hash(hash, filepath)
-        self.ui.debug("Finished finding duplicates.")
+                    cnt_files += 1
+        self.ui.info("Finished finding duplicates. Processed hashes: %d, files: %d" % (len(self.map), cnt_files))
 
 
     def find_duplicates_in_folder(self, path):
@@ -40,6 +43,8 @@ class DuplicateFinder(QThread):
         files = common.get_file_list(path)
         self.ui.info("Scannning %d files for duplicates in %s" % (len(files), path))
         for item in files:
+            if self.ui.is_abort():
+                return
             self.ui.info("Hashing: %s" % item)
             filepath = os.path.normpath(os.path.join(path, item))
             hash = common.get_hash_from_file(filepath, self.ui)
@@ -49,87 +54,107 @@ class DuplicateFinder(QThread):
 
     def show_duplicates(self):
         self.ui.info("Duplicates found:")
-        cntHashes = 0
-        cntDuplicates = 0
+        cnt_hashes = 0
+        cnt_duplicates = 0
         for hash, files in self.map.items():
             if len(files) > 1:
-                cntHashes += 1
-                self.ui.info("\n%s" % hash)
+                cnt_hashes += 1
+                self.ui.hash("%s" % hash)
                 for filename in files:
-                    self.ui.info("%s" % filename)
-                    cntDuplicates += 1
-                cntDuplicates -= 1 # decrement for original
+                    self.ui.file("%s" % filename)
+                    cnt_duplicates += 1
+                cnt_duplicates -= 1 # decrement for original
+        self.ui.info("Finished finding duplicates. Found hashes: %d, files: %d" % (cnt_hashes, cnt_duplicates))
 
-        self.ui.info("Finished finding duplicates. %d hashes, %d files" % (cntHashes, cntDuplicates))
+
+    def find_and_show_duplicates_in_folder_worker(self):
+        self.find_and_show_duplicates_in_folder_impl(self.argPath)
+        self.ui.stats()
 
 
-    def find_and_show_duplicates_in_folder_impl(self):
-        self.find_duplicates_in_folder(self.argPath)
+    def find_and_show_duplicates_in_folder_impl(self, path):
+        self.find_duplicates_in_folder(path)
         self.show_duplicates()
+
 
     def find_and_show_duplicates_in_folder(self, path):
         self.argPath = path
-        self.worker = self.find_and_show_duplicates_in_folder_impl
-        self.start()
-        #self.worker()
+        self.worker = self.find_and_show_duplicates_in_folder_worker
+        if constant.USE_THREADS:
+            self.start()
+        else:
+            self.worker()
 
-    def find_and_show_duplicates_impl(self):
-        self.find_duplicates(self.collector)
+
+    def find_and_show_duplicates_in_hashDB_worker(self):
+        self.find_duplicates_in_hashDB(self.collector)
         self.show_duplicates()
 
 
-    def find_and_show_duplicates(self):
-        self.worker = self.find_and_show_duplicates_impl
-        self.start()
-        #self.worker()
+    def find_and_show_duplicates_in_hashDB(self):
+        self.worker = self.find_and_show_duplicates_in_hashDB_worker
+        if constant.USE_THREADS:
+            self.start()
+        else:
+            self.worker()
 
-    def find_and_move_duplicates(self, masterPath, duplicatePath, simulate):
-        self.argMasterPath = masterPath
-        self.argDuplicatePath = duplicatePath
-        self.argSimulate = simulate
-        self.worker = self.find_and_move_duplicates_impl
-        self.start()
-        #self.worker()
+
+    def move_duplicates_with_master_dir(self, master_path, duplicate_path, simulate):
+        self.arg_master_path = master_path
+        self.arg_duplicate_path = duplicate_path
+        self.arg_simulate = simulate
+        self.worker = self.move_duplicates_with_master_dir_worker
+        if constant.USE_THREADS:
+            self.start()
+        else:
+            self.worker()
+
 
     def __del__(self):
         self.wait()
+
 
     def run(self):
         if None != self.worker:
             self.worker()
 
 
-    def find_and_move_duplicates_impl(self):
+    def move_duplicates_with_master_dir_worker(self):
+        self.move_duplicates_with_master_dir_impl(self.arg_master_path, self.arg_duplicate_path, self.arg_simulate)
+
+
+    def move_duplicates_with_master_dir_impl(self, master_path, duplicate_path, simulate):
         self.ui.info("Start moving duplicates...")
-        cntMoved = 0
-        cntMovedError = 0
+        cnt_moved = 0
+        cnt_error = 0
         for hash, files in self.map.items():
             if len(files) > 1:
-                filesToMove = []
-                masterFile = None
+                files_to_move = []
+                master_file = None
                 for filename in files:
-                    if filename.startswith(self.argMasterPath):
+                    p = os.path.dirname(filename)
+                    if p == master_path:
                         #self.ui.info("Found master: %s" % filename)
-                        masterFile = filename
-                        filesToMove = list(files)
-                        filesToMove.remove(filename)
+                        master_file = filename
+                        files_to_move = list(files)
+                        files_to_move.remove(filename)
                         break
 
-                for srcPath in filesToMove:
+                for src_path in files_to_move:
                     try:
-                        path = "." + os.path.splitdrive(srcPath)[1]
+                        path = "." + os.path.splitdrive(src_path)[1]
                         path = os.path.normpath(path)
-                        destPath = os.path.join(self.argDuplicatePath, path)
-                        self.ui.info("Move %s to %s - Master: %s" % (srcPath, destPath, masterFile))
-                        common.move_file(srcPath, destPath, False, self.argSimulate, self.ui)
-                        cntMoved += 1
-                        if not self.argSimulate:
-                            dirName = os.path.dirname(srcPath)
-                            self.collector.remove_hash(dirName, hash)
+                        dest_path = os.path.join(duplicate_path, path)
+                        self.ui.debug("Move %s to %s - Master: %s" % (src_path, dest_path, master_file))
+                        common.move_file(src_path, dest_path, False, simulate, self.ui)
+                        cnt_moved += 1
+                        if not simulate:
+                            dir_name = os.path.dirname(src_path)
+                            self.collector.remove_hash(dir_name, hash)
                     except:
-                        self.ui.info("Error moving: %s" % srcPath)
-                        cntMovedError += 1
+                        self.ui.error("Error moving: %s" % src_path)
+                        cnt_error += 1
                         pass
 
-                            
-        self.ui.info("Finished moving %d duplicates. Errors: %d" % (cntMoved, cntMovedError))
+        self.collector.save_hashes()                            
+        self.ui.info("Finished moving %d duplicates. Errors: %d" % (cnt_moved, cnt_error))

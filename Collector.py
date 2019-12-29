@@ -37,17 +37,21 @@ class Collector(QThread):
         self.argCmd = cmd
         self.argSkipExisting = skipExisting
         self.worker = self.add_dir_wrapper
-        self.start()
-        #self.run()
+        if constant.USE_THREADS:
+            self.start()
+        else:
+            self.worker()
 
 
     def find_extern_duplicates(self, srcDir, recursive, simulate):
         self.argSrcDir = srcDir
         self.argRecursive = recursive
-        self.argSimulate = simulate
+        self.arg_simulate = simulate
         self.worker = self.find_extern_duplicates_wrapper
-        self.start()
-        #self.run()
+        if constant.USE_THREADS:
+            self.start()
+        else:
+            self.worker()
 
 
     def find_hash(self, hash):
@@ -57,6 +61,16 @@ class Collector(QThread):
                 name = os.path.join(db.path, name)
                 return name
         return None
+
+
+    def find_hash_all(self, hash):
+        found = []
+        for path, db in self.map.items():
+            name = db.find_hash(hash)
+            if None != name:
+                name = os.path.join(db.path, name)
+                found.append(name)
+        return found
 
 
     def __del__(self):
@@ -73,39 +87,42 @@ class Collector(QThread):
 
     def add_dir_wrapper(self):
         self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argCmd)
+        self.ui.stats()
+
 
 
     def add_dir_impl2(self, path, recursive, skipExisting, cmd):
-        errorCnt = 0
         dir = os.path.normpath(path)
         if self.skip_dir(dir):
             self.ui.info("Skipping dir: %s" % dir)
-            #skipCnt +=1
-            return 0
+            self.ui.inc_dir_skipped()
+            return
     
         db = self.get_db(dir)
         if db.load():
-            #loadedCnt += 1
+            self.ui.inc_hash_db_loaded()
             pass
 
         if cmd is CollectorCmd.scan:
             db.scan(skipExisting)
+            self.ui.inc_dir_scanned()
             db.save()
         elif cmd is CollectorCmd.verify:
-            errorCnt += db.verify()
+            db.verify()
 
         if recursive:
             dirList = []
             dirList.extend(common.get_dir_list_absolute(path, False))
             for dir in dirList:
-                errorCnt += self.add_dir_impl2(dir, recursive, skipExisting, cmd)
-        return errorCnt
+                self.add_dir_impl2(dir, recursive, skipExisting, cmd)
+                if self.ui.is_abort():
+                    return
 
 
     def add_dir_impl(self, path, recursive, skipExisting, cmd):
         self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
-        errorCnt = self.add_dir_impl2(path, recursive, skipExisting, cmd)
-        self.ui.info("Finished loading HashDB. Errors: %d" % errorCnt)
+        self.add_dir_impl2(path, recursive, skipExisting, cmd)
+        self.ui.info("Finished loading %d HashDB." % (len(self.map)))
 
 
     def remove_hash(self, path, hash):
@@ -116,7 +133,7 @@ class Collector(QThread):
             db.remove(hash)
 
 
-    def save_hashes(self, forceSave):
+    def save_hashes(self, forceSave = False):
         self.ui.info("Start saving HashDB")
         for path, db in self.map.items():
             db.save(forceSave)
@@ -125,7 +142,7 @@ class Collector(QThread):
 
 
     def find_extern_duplicates_wrapper(self):
-        self.find_extern_duplicates_impl(self.argSrcDir, self.argRecursive, self.argSimulate)
+        self.find_extern_duplicates_impl(self.argSrcDir, self.argRecursive, self.arg_simulate)
 
     
     def find_extern_duplicates_impl(self, srcDir, recursive, simulate):
@@ -150,6 +167,6 @@ class Collector(QThread):
                 found_file = self.find_hash(hash)
                 if None != found_file:
                     cntDuplicates += 1
-                    self.ui.info(srcFilepath, hash)
+                    self.ui.info(srcFilepath)
 
         self.ui.info("Finished finding duplicates. %d files" % (cntDuplicates))

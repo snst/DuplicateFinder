@@ -41,7 +41,7 @@ collector = Collector(logger)
 collector.add_dir(path, recursive = True, doScan = True, skipExisting = True)
 
 finder = DuplicateFinder(logger)
-finder.find_duplicates(collector)
+finder.find_duplicates_in_hashDB(collector)
 finder.show_duplicates()
 
 mover = DuplicateFindernExternDir(logger)

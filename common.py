@@ -12,9 +12,14 @@ def get_hash_from_file(filename, ui):
         with open(filename, "rb") as f:
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
+                if ui.is_abort():
+                    return None
+        digest = sha256_hash.hexdigest()
+        ui.inc_hash()
+        return digest
     except:
         ui.info("hash failed for %s" % filename)
+        ui.inc_error()
         return None
 
 
@@ -77,15 +82,21 @@ def move_file(srcPath, destPath, overwrite, simulate, ui):
             if not overwrite and os.path.isfile(destPath):
                 destPath = create_new_filename(destPath)
                 ui.info("Renamed moved file to %s" % destPath)
-
-            shutil.move(srcPath, destPath)
+                shutil.move(srcPath, destPath)
+                ui.inc_moved_renamed()
+            else:
+                shutil.move(srcPath, destPath)
+                ui.inc_moved()
         except:
             ui.error("Failed to move %s to %s" %
                 (srcPath, destPath))
+            ui.inc_error()
             pass
+
 
 def open_file(filename):
     subprocess.Popen(r'explorer ' + filename)
+
 
 def open_folder(filename):
     subprocess.Popen(r'explorer /select, ' + filename)

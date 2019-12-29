@@ -25,9 +25,9 @@ class HashDB:
 
     def remove(self, hash):
         if None == self.find_hash(hash):
-            self.ui.info("HashDB.remove: Error: not found: %s %s" % (self.path, hash))
+            self.ui.error("Failed to remove hash from HashDB: %s -- %s" % (hash, self.path))
             return
-        self.ui.info("Remove hash %s from %s" % (hash, self.path))
+        self.ui.debug("Remove hash %s from %s" % (hash, self.path))
         self.map.pop(hash, None)
         self.modified = True
 
@@ -53,58 +53,66 @@ class HashDB:
             newMap[hash] = item
 
         for hash, name in self.map.items():
-            self.ui.info("Removing hash for not found file %s - %s" % (name, hash))
+            self.ui.info("Removing hash for not found file: %s - %s" % (os.path.join(self.path, name), hash))
             self.modified = True
         self.map = newMap
         pass
 
 
     def verify(self):
-        errorCnt = 0
         files = common.get_file_list(self.path)
         self.ui.info("Verifing %d files in %s" % (len(files), self.path))
         map2 = copy.deepcopy(self.map)
         for item in files:
+            if self.ui.is_abort():
+                return
             found_hash = self.find_filename(item)
             filepath = os.path.join(self.path, item)
             if found_hash:
                 map2.pop(found_hash, None)
                 calc_hash = common.get_hash_from_file(filepath, self.ui)
                 if found_hash != calc_hash:
-                    self.ui.info("!! Wrong hash for %s" % filepath)
-                    self.ui.info("!! HashDB/Calc: %s <=> %s" % (found_hash, calc_hash))
-                    errorCnt += 1
+                    self.ui.error("!! Wrong hash for %s" % filepath)
+                    self.ui.error("!! HashDB/Calc: %s <=> %s" % (found_hash, calc_hash))
+                    self.ui.inc_verify_failed()
+                    self.ui.inc_error()
+                else:
+                    self.ui.inc_verify_ok()
             else:
-                self.ui.info("!! New file: %s" % filepath)
-                errorCnt += 1
+                self.ui.error("!! New file: %s" % filepath)
+                self.ui.inc_error()
 
         for hash, name in map2.items():
-            self.ui.info("!! Missing file: %s" % (name))
-            errorCnt += 1
-        return errorCnt
+            self.ui.error("!! Missing file: %s" % (name))
+            self.ui.inc_error()
+
 
     def save(self, force = False):
         if self.modified or force:
             try:
                 self.ui.info("Save hashes: %s" % self.name)
-                f = open(self.name, 'w')
-                f.write(str(self.map))
+                f = open(self.name, 'w', encoding="utf-8")
+                txt = str(self.map)
+                f.write(txt)
                 f.close()
                 self.modified = False
-            except:
-                self.ui.error("Failed to save: %s" % self.name)
+            except Exception as e:
+                self.ui.error("Failed to save: %s\n%s" % (self.name, str(e)))
 
 
     def load(self):
+        self.map = {}
+        if not os.path.isfile(self.name):
+            return False
         try:
-            f = open(self.name, 'r')
+            f = open(self.name, 'r', encoding="utf-8")
             data = f.read()
             f.close()
             self.map = eval(data)
             self.ui.debug("Loaded: %s" % self.name)
             return True
-        except:
-            self.ui.debug("Failed to load: %s " % self.name)
+        except Exception as e:
+            self.ui.error("Failed to load: %s\n%s" % (self.name, str(e)))
             self.map = {}
             return False
 
