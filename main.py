@@ -58,50 +58,50 @@ class App(QWidget):
         self.splitter_file.addWidget(self.tree_l)
         self.splitter_file.addWidget(self.tree_r)
 
-        self.logEdit = QListWidget()
-        self.logEdit.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.logEdit.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.logEdit.customContextMenuRequested.connect(self.open_log_menu)
+        self.list_output = QListWidget()
+        self.list_output.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.list_output.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_output.customContextMenuRequested.connect(self.open_log_menu)
 
-        cmdLayout = QHBoxLayout()
+        layout_cmd = QHBoxLayout()
 
-        self.simulateOnlyCheckbox = QCheckBox("Simulate only")
-        self.simulateOnlyCheckbox.setChecked(True)
-        cmdLayout.addWidget(self.simulateOnlyCheckbox)
+        self.checkbox_recursive = QCheckBox("Recursive")
+        self.checkbox_recursive.setChecked(True)
+        layout_cmd.addWidget(self.checkbox_recursive)
 
-        debugCheckBox = QCheckBox("Debug")
-        debugCheckBox.setChecked(False)
-        debugCheckBox.stateChanged.connect(lambda:self.handle_debug_checkbox(debugCheckBox))
+        self.checkbox_flat_move = QCheckBox("Flat move")
+        self.checkbox_flat_move.setChecked(False)
+        layout_cmd.addWidget(self.checkbox_flat_move)
 
-        cmdLayout.addWidget(debugCheckBox)
+        self.checkbox_simulate = QCheckBox("Simulate move")
+        self.checkbox_simulate.setChecked(False)
+        layout_cmd.addWidget(self.checkbox_simulate)
 
-        btn = QPushButton("Find duplicates in HashDB")
-        btn.clicked.connect(lambda:self.handle_find_duplicates_in_hashDB())
-        cmdLayout.addWidget(btn)
+        checkbox_debug = QCheckBox("Debug")
+        checkbox_debug.setChecked(False)
+        checkbox_debug.stateChanged.connect(lambda:self.handle_debug_checkbox(checkbox_debug))
 
-        btn = QPushButton("Move duplicates in HashDB")
-        btn.clicked.connect(lambda:self.handle_move_duplicates_in_hashDB())
-        cmdLayout.addWidget(btn)
+        layout_cmd.addWidget(checkbox_debug)
 
         btn = QPushButton("Abort")
         btn.clicked.connect(lambda:self.handle_abort())
-        cmdLayout.addWidget(btn)
+        layout_cmd.addWidget(btn)
 
         btn = QPushButton("Save HashDB")
         btn.clicked.connect(lambda:self.handle_save_modified_hashDB(self))
-        cmdLayout.addWidget(btn)
+        layout_cmd.addWidget(btn)
 
         btn = QPushButton("Clear HashDB (RAM)")
         btn.clicked.connect(lambda:self.handle_clear_hashDB())
-        cmdLayout.addWidget(btn)
+        layout_cmd.addWidget(btn)
 
         btn = QPushButton("Clear Log")
         btn.clicked.connect(lambda:self.handle_clear())
-        cmdLayout.addWidget(btn)
+        layout_cmd.addWidget(btn)
 
 
-        cmdWidget = QWidget()
-        cmdWidget.setLayout(cmdLayout)
+        widget_cmd = QWidget()
+        widget_cmd.setLayout(layout_cmd)
 
         grid = QGridLayout()
         
@@ -114,23 +114,23 @@ class App(QWidget):
         grid.addWidget(self.masterDirEdit, 1, 1)
 
 
-        bottomLayout = QVBoxLayout()
+        layout_bottom = QVBoxLayout()
         w = QWidget()
         w.setLayout(grid)
-        bottomLayout.addWidget(w)
-        bottomLayout.addWidget(cmdWidget)
-        bottomLayout.addWidget(self.logEdit)
+        layout_bottom.addWidget(w)
+        layout_bottom.addWidget(widget_cmd)
+        layout_bottom.addWidget(self.list_output)
 
         bottomWidget = QWidget()
-        bottomWidget.setLayout(bottomLayout)
+        bottomWidget.setLayout(layout_bottom)
 
 
         self.splitter.addWidget(self.splitter_file)
         self.splitter.addWidget(bottomWidget)
 
-        windowLayout = QVBoxLayout()
-        windowLayout.addWidget(self.splitter)
-        self.setLayout(windowLayout)
+        layout_window = QVBoxLayout()
+        layout_window.addWidget(self.splitter)
+        self.setLayout(layout_window)
 
         self.ui = logger
         self.collector = Collector(self.ui)
@@ -141,7 +141,7 @@ class App(QWidget):
         logger.log_info.connect(self.log_info)
         logger.log_error.connect(self.log_error)
         logger.log_file.connect(self.log_file)
-        logger.enableDebug(debugCheckBox.isChecked())
+        logger.enableDebug(checkbox_debug.isChecked())
         self.show()
 
 
@@ -151,7 +151,7 @@ class App(QWidget):
         if hash:
             item.setData(USER_ROLE_HASH, hash)
             pass
-        self.logEdit.addItem(item)
+        self.list_output.addItem(item)
 
 
     @pyqtSlot(str)
@@ -159,19 +159,19 @@ class App(QWidget):
         item = QListWidgetItem(str)
         item.setBackground(QColor(150, 255, 50))
 #        item.setData(USER_ROLE_HASH, str)
-        self.logEdit.addItem(item)
+        self.list_output.addItem(item)
 
     @pyqtSlot(str)
     def log_file(self, str):
         item = QListWidgetItem(str)
         item.setBackground(QColor(200, 230, 255))
-        self.logEdit.addItem(item)
+        self.list_output.addItem(item)
 
     @pyqtSlot(str)
     def log_error(self, str):
         item = QListWidgetItem(str)
         item.setBackground(QColor(255, 0, 0))
-        self.logEdit.addItem(item)
+        self.list_output.addItem(item)
 
 
     @pyqtSlot(str)
@@ -179,12 +179,12 @@ class App(QWidget):
         item = QListWidgetItem(str)
 #        item.setBackground(QColor(150, 255, 50))
 #        item.setData(USER_ROLE_HASH, str)
-        self.logEdit.addItem(item)
+        self.list_output.addItem(item)
 
 
 
     def handle_clear(self):
-        self.logEdit.clear()
+        self.list_output.clear()
 
 
     def handle_debug_checkbox(self, checkbox):
@@ -193,7 +193,7 @@ class App(QWidget):
 
     def get_selected_filename_from_finder(self):
         filenames = []
-        items = self.logEdit.selectedItems()
+        items = self.list_output.selectedItems()
         if items:
             for item in items:
                 txt = item.text()
@@ -239,7 +239,15 @@ class App(QWidget):
 
 
     def is_simulation(self):
-        return self.simulateOnlyCheckbox.isChecked()
+        return self.checkbox_simulate.isChecked()
+
+
+    def is_recursive(self):
+        return self.checkbox_recursive.isChecked()
+
+
+    def is_flat_move(self):
+        return self.checkbox_flat_move.isChecked()
 
 
     def handle_find_duplicates_in_folder(self, path):
@@ -257,26 +265,17 @@ class App(QWidget):
     def handle_collector_process_dir(self, path, recursive, cmd):
         self.set_default_dest_dir(path)
         self.ui.reset()
-        self.collector.add_dir(path, recursive = recursive, cmd = cmd)
+        self.collector.add_dir(path, recursive = recursive, cmd = cmd, duplicate_db = self.finder.db, skipExisting = True)
 
 
-    def handle_find_duplicates_in_hashDB(self):
+    def handle_find_duplicates_in_hashDB(self, path):
         self.ui.reset()
-        self.finder.find_and_show_duplicates_in_hashDB()
+        self.finder.find_and_show_duplicates_in_hashDB(path)
 
 
     def handle_clear_hashDB(self):
         self.ui.reset()
         self.collector.clear()
-
-
-    def handle_move_duplicates_in_hashDB(self):
-        self.ui.reset()
-        masterDir = self.get_master_dir()
-        destDir = self.get_mover_dest_dir()
-        if None != masterDir and None != destDir:
-            self.finder.move_duplicates_with_master_dir(masterDir, destDir, self.is_simulation())
-        pass
 
 
     def handle_abort(self):
@@ -350,27 +349,38 @@ class App(QWidget):
             menu.addAction("Find file in HashDB", lambda: self.handle_find_duplicate_file_in_hashDB_and_show_infobox(filenames[0]))
             menu.addAction("Open", lambda: self.handle_open_files(filenames))
             menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
-            menu.addAction("Move selected files (flat)", lambda: self.handle_move_files(filenames, True))
-            menu.addAction("Move selected files (with path)", lambda: self.handle_move_files(filenames, False))
-            menu.addAction("Keep files in this folder, move other duplicates (with path)", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0]))
+            menu.addAction("Move selected files", lambda: self.handle_move_files(filenames, self.is_flat_move()))
+            menu.addAction("Keep files in this folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0]))
 
-        menu.exec_(self.logEdit.viewport().mapToGlobal(position))
+        menu.exec_(self.list_output.viewport().mapToGlobal(position))
 
+
+    def handle_enable_dir_hashing(self, filename, enable):
+        if enable:
+            os.remove(filename)
+        else:
+            open(filename, 'a')
+
+
+    def add_hashes_option_to_menu(self, menu, path):
+        if os.path.isdir(path):
+            filename = os.path.join(path, constant.NOHASHFILE)
+            if os.path.exists(filename):
+                menu.addAction("Include dir in HashDB", lambda: self.handle_enable_dir_hashing(filename, True))
+            else:
+                menu.addAction("Exclude dir from HashDB", lambda: self.handle_enable_dir_hashing(filename, False))
 
     def open_tree_menu(self, tree, position):
         i = tree.currentIndex()
         selectedPath = os.path.normpath(self.model_l.filePath(i))
         menu = QMenu()
-        menu.addAction("Load HashDB (recursively)", lambda: self.handle_collector_process_dir(selectedPath, recursive = True, cmd = CollectorCmd.load))
-        menu.addAction("Scan dir (recursively)", lambda: self.handle_collector_process_dir(selectedPath, recursive = True, cmd = CollectorCmd.scan))
-        menu.addAction("Verify hashes (recursively)", lambda: self.handle_collector_process_dir(selectedPath, recursive = True, cmd = CollectorCmd.verify))
-        menu.addAction("Scan extern dir for duplicates in HashDB (recursively)", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = True))
+        menu.addAction("Load HashDB", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.load))
+        menu.addAction("Scan dir", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.scan))
+        menu.addAction("Verify hashes", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.verify))
+        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
+        menu.addAction("Find duplicates in HashDB", lambda: self.handle_find_duplicates_in_hashDB(selectedPath))
         menu.addSeparator()
-        menu.addAction("Load HashDB", lambda: self.handle_collector_process_dir(selectedPath, recursive = False, cmd = CollectorCmd.load))
-        menu.addAction("Scan dir", lambda: self.handle_collector_process_dir(selectedPath, recursive = False, cmd = CollectorCmd.scan))
-        menu.addAction("Verify hashes", lambda: self.handle_collector_process_dir(selectedPath, recursive = False, cmd = CollectorCmd.verify))
-        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = False))
-        menu.addSeparator()
+        self.add_hashes_option_to_menu(menu, selectedPath)
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))

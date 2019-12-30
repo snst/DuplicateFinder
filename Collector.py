@@ -5,6 +5,7 @@ import common
 from HashDB import *
 from PyQt5.QtCore import QThread
 from enum import Enum
+from DuplicateDB import *
 
 class CollectorCmd(Enum):
     load = 0
@@ -31,11 +32,12 @@ class Collector(QThread):
         self.map = {}
 
 
-    def add_dir(self, path, recursive, cmd, skipExisting = True):
+    def add_dir(self, path, recursive, cmd, duplicate_db, skipExisting):
         self.argPath = path
         self.argRecursive = recursive
         self.argCmd = cmd
         self.argSkipExisting = skipExisting
+        self.arg_duplicate_db = duplicate_db
         self.worker = self.add_dir_wrapper
         if constant.USE_THREADS:
             self.start()
@@ -86,12 +88,12 @@ class Collector(QThread):
 
 
     def add_dir_wrapper(self):
-        self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argCmd)
+        self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argCmd, self.arg_duplicate_db)
         self.ui.stats()
 
 
 
-    def add_dir_impl2(self, path, recursive, skipExisting, cmd):
+    def add_dir_impl2(self, path, recursive, skipExisting, cmd, duplicate_db):
         dir = os.path.normpath(path)
         if self.skip_dir(dir):
             self.ui.info("Skipping dir: %s" % dir)
@@ -104,7 +106,7 @@ class Collector(QThread):
             pass
 
         if cmd is CollectorCmd.scan:
-            db.scan(skipExisting)
+            db.scan(duplicate_db, skipExisting)
             self.ui.inc_dir_scanned()
             db.save()
         elif cmd is CollectorCmd.verify:
@@ -114,15 +116,17 @@ class Collector(QThread):
             dirList = []
             dirList.extend(common.get_dir_list_absolute(path, False))
             for dir in dirList:
-                self.add_dir_impl2(dir, recursive, skipExisting, cmd)
+                self.add_dir_impl2(dir, recursive, skipExisting, cmd, duplicate_db)
                 if self.ui.is_abort():
                     return
 
 
-    def add_dir_impl(self, path, recursive, skipExisting, cmd):
+    def add_dir_impl(self, path, recursive, skipExisting, cmd, duplicate_db):
+        duplicate_db.reset()
         self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
-        self.add_dir_impl2(path, recursive, skipExisting, cmd)
-        self.ui.info("Finished loading %d HashDB." % (len(self.map)))
+        self.add_dir_impl2(path, recursive, skipExisting, cmd, duplicate_db)
+        self.ui.debug("Finished loading %d HashDB." % (len(self.map)))
+        duplicate_db.show_duplicates()
 
 
     def remove_hash(self, path, hash):

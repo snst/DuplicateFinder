@@ -32,10 +32,38 @@ class HashDB:
         self.modified = True
 
 
-    def scan(self, skipExisting):
+    def check_for_duplicate(self, duplicate_db, hash, filename):
+        existing_file = self.find_hash(hash)
+        if existing_file:
+            if not duplicate_db.find_hash(hash):
+                duplicate_db.add_hash(hash, os.path.join(self.path, existing_file))
+            duplicate_db.add_hash(hash, filename)
+            self.ui.debug("Already existing: %s" % existing_file)
+            return True
+        return False
+
+
+    def remove_missing_files_from_hashDB(self, files):
+        missing_files = {}
+        for hash, name in self.map.items():
+            if not name in files:
+                missing_files[hash] = name
+        
+        if len(missing_files):
+            self.ui.info("Removing missing files from HashDB:")
+
+        for hash, name in missing_files.items():
+            self.ui.info("%s - %s" % (name, hash))
+            self.map.pop(hash, None)
+            self.ui.inc_missing_file()
+            self.modified = True
+
+
+    def scan(self, duplicate_db, skipExisting):
         files = common.get_file_list(self.path)
         self.ui.info("Scannning %d files in %s" % (len(files), self.path))
-        newMap = {}
+        self.remove_missing_files_from_hashDB(files)
+
         infoHash = False
         for item in files:
             hash = self.find_filename(item)
@@ -48,16 +76,9 @@ class HashDB:
                     self.ui.info("Hashing:")
                 self.ui.info(filepath)
                 hash = common.get_hash_from_file(filepath, self.ui)
-                self.add(item, hash)
-            self.map.pop(hash, None)
-            newMap[hash] = item
-
-        for hash, name in self.map.items():
-            self.ui.info("Removing hash for not found file: %s - %s" % (os.path.join(self.path, name), hash))
-            self.modified = True
-        self.map = newMap
-        pass
-
+                if not self.check_for_duplicate(duplicate_db, hash, filepath):
+                    self.add(item, hash)
+      
 
     def verify(self):
         files = common.get_file_list(self.path)

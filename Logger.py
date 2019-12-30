@@ -54,11 +54,40 @@ class Logger(QObject):
         self.cnt_hash_db_loaded = 0
         self.cnt_dir_skipped = 0
         self.cnt_dir_scanned = 0
+        self.cnt_hash_duplicates = 0
+        self.cnt_file_duplicates = 0
+        self.cnt_missing_file = 0
+
+    def m(self, msg, cnt):
+        if cnt > 0:
+            return ", %s: %d" % (msg, cnt)
+        else:
+            return ""
 
     def stats(self):
-        self.info("error: %s, hashed: %d, verify_ok: %d, verify_error: %d, moved: %s, moved+renamed: %d, loaded HashDB: %d, scanned dir: %d, skipped dir: %d" % 
-        (self.cnt_error, self.cnt_hash, self.cnt_verify_ok, self.cnt_verify_failed, self.cnt_moved, 
-        self.cnt_moved_renamed, self.cnt_hash_db_loaded, self.cnt_dir_scanned, self.cnt_dir_skipped))
+        str = "Finished"
+        str += self.m("Errors", self.cnt_error)
+        str += self.m("Hashed files", self.cnt_hash)
+        str += self.m("Verify Ok", self.cnt_verify_ok)
+        str += self.m("Verify Error", self.cnt_verify_failed)
+        str += self.m("Moved files", self.cnt_moved)
+        str += self.m("Moved/renamed files", self.cnt_moved_renamed)
+        str += self.m("Loaded HashDB", self.cnt_hash_db_loaded)
+        str += self.m("Scanned dir", self.cnt_dir_scanned)
+        str += self.m("Skipped dir", self.cnt_dir_skipped)
+        str += self.m("Hash duplicates", self.cnt_hash_duplicates)
+        str += self.m("File duplicates", self.cnt_file_duplicates)
+        str += self.m("File missing", self.cnt_missing_file)
+        self.info(str)
+
+    def inc_missing_file(self):
+        self.cnt_missing_file += 1
+
+    def inc_hash_duplicates(self):
+        self.cnt_hash_duplicates += 1
+
+    def inc_file_duplicates(self):
+        self.cnt_file_duplicates += 1
 
     def inc_hash(self):
         self.cnt_hash += 1
