@@ -58,34 +58,17 @@ class DuplicateDB:
         #    self.ui.info("No duplicates found.")
 
 
-    def move_duplicates_with_master_dir_impl(self, master_path, duplicate_path, simulate, collector):
+    def get_list_with_files_to_move_keep_master_path(self, master_path):
         self.ui.info("Start moving duplicates...")
+        all_files_to_move = []
         for hash, files in self.map.items():
             if len(files) > 1:
-                files_to_move = []
-                master_file = None
                 for filename in files:
                     p = os.path.dirname(filename)
-                    if p == master_path:
-                        #self.ui.info("Found master: %s" % filename)
-                        master_file = filename
+                    if p == master_path: # found master file to keep
                         files_to_move = list(files)
                         files_to_move.remove(filename)
+                        all_files_to_move.extend(files_to_move)
                         break
-
-                for src_path in files_to_move:
-                    try:
-                        path = "." + os.path.splitdrive(src_path)[1]
-                        path = os.path.normpath(path)
-                        dest_path = os.path.join(duplicate_path, path)
-                        self.ui.debug("Move %s to %s - Master: %s" % (src_path, dest_path, master_file))
-                        common.move_file(src_path, dest_path, False, simulate, self.ui)
-                        if not simulate:
-                            dir_name = os.path.dirname(src_path)
-                            collector.remove_hash(dir_name, hash)
-                    except Exception as e:
-                        self.ui.error("Error moving: %s, %s" % (str(e), src_path))
-                        pass
-
-        collector.save_hashes()                            
-        #self.ui.info("Finished moving %d duplicates. Errors: %d" % (cnt_moved, cnt_error))
+        return all_files_to_move
+        

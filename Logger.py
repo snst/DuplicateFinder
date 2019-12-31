@@ -57,6 +57,7 @@ class Logger(QObject):
         self.cnt_hash_duplicates = 0
         self.cnt_file_duplicates = 0
         self.cnt_missing_file = 0
+        self.cnt_file_processed = 0
 
     def m(self, msg, cnt):
         if cnt > 0:
@@ -77,8 +78,12 @@ class Logger(QObject):
         str += self.m("Skipped dir", self.cnt_dir_skipped)
         str += self.m("Hash duplicates", self.cnt_hash_duplicates)
         str += self.m("File duplicates", self.cnt_file_duplicates)
-        str += self.m("File missing", self.cnt_missing_file)
+        str += self.m("Files missing", self.cnt_missing_file)
+        str += self.m("Files processed", self.cnt_file_processed)
         self.info(str)
+
+    def inc_file_processed(self):
+        self.cnt_file_processed += 1
 
     def inc_missing_file(self):
         self.cnt_missing_file += 1

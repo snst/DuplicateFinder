@@ -148,3 +148,9 @@ class HashDB:
     def find_hash(self, hash):
         value = self.map.get(hash)
         return value
+
+
+    def remove_filename(self, filename):
+        hash = self.find_filename(filename)
+        if hash:
+            self.remove(hash)

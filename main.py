@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from Logger import *
-from DuplicateFinder import *
 from Collector import *
 import subprocess
 
@@ -134,7 +133,6 @@ class App(QWidget):
 
         self.ui = logger
         self.collector = Collector(self.ui)
-        self.finder = DuplicateFinder(self.collector, self.ui)
 
         logger.speak.connect(self.log)
         logger.log_hash.connect(self.log_hash)
@@ -212,7 +210,7 @@ class App(QWidget):
         master_dir = os.path.dirname(filename)
         dest_dir = self.get_mover_dest_dir()
         if None != master_dir and None != dest_dir:
-            self.finder.move_duplicates_with_master_dir(master_dir, dest_dir, self.is_simulation())
+            self.collector.move_duplicates_with_master_dir(master_dir, dest_dir, self.is_flat_move(), self.is_simulation())
 
 
     def handle_open_files(self, filenames):
@@ -225,11 +223,8 @@ class App(QWidget):
             common.open_folder(filename)
 
 
-    def handle_move_files(self, filenames, moveFlat):
-        self.ui.reset()
-        for filename in filenames:
-            destFilepath = common.create_duplicate_dest_path(filename, self.get_mover_dest_dir(), moveFlat)
-            common.move_file(filename, destFilepath, False, self.is_simulation(), self.ui)
+    def handle_move_files(self, filenames, move_flat):
+        self.collector.move_files(filenames, move_flat, self.get_mover_dest_dir(), self.is_simulation())
 
 
     def handle_save_modified_hashDB(self, a):
@@ -251,8 +246,7 @@ class App(QWidget):
 
 
     def handle_find_duplicates_in_folder(self, path):
-        self.ui.reset()
-        self.finder.find_and_show_duplicates_in_folder(path)
+        self.collector.find_and_show_duplicates_in_folder(path)
 
 
     def set_default_dest_dir(self, path):
@@ -264,13 +258,12 @@ class App(QWidget):
 
     def handle_collector_process_dir(self, path, recursive, cmd):
         self.set_default_dest_dir(path)
-        self.ui.reset()
-        self.collector.add_dir(path, recursive = recursive, cmd = cmd, duplicate_db = self.finder.db, skipExisting = True)
+        self.collector.add_dir(path, recursive = recursive, cmd = cmd, skipExisting = True)
 
 
     def handle_find_duplicates_in_hashDB(self, path):
         self.ui.reset()
-        self.finder.find_and_show_duplicates_in_hashDB(path)
+        self.collector.find_and_show_duplicates_in_hashDB(path)
 
 
     def handle_clear_hashDB(self):
@@ -377,12 +370,12 @@ class App(QWidget):
         menu.addAction("Load HashDB", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.load))
         menu.addAction("Scan dir", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.scan))
         menu.addAction("Verify hashes", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.verify))
-        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
         menu.addAction("Find duplicates in HashDB", lambda: self.handle_find_duplicates_in_hashDB(selectedPath))
         menu.addSeparator()
-        self.add_hashes_option_to_menu(menu, selectedPath)
-        menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
+        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
+        menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
+        self.add_hashes_option_to_menu(menu, selectedPath)
         menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))
         menu.exec_(tree.viewport().mapToGlobal(position))
 

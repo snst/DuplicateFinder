@@ -62,34 +62,34 @@ def create_new_filename(filepath):
     return newfilepath
 
 
-def create_duplicate_dest_path(srcPath, duplicateDir, flat):
+def create_duplicate_dest_path(src_path, dest_dir, flat):
     if flat:
-        destPath = os.path.join(duplicateDir, os.path.basename(srcPath))
+        dest_path = os.path.join(dest_dir, os.path.basename(src_path))
     else:
-        destPath = '.' + os.path.splitdrive(srcPath)[1]
-        destPath = os.path.join(duplicateDir, destPath)
-    return os.path.normpath(destPath)
+        dest_path = '.' + os.path.splitdrive(src_path)[1]
+        dest_path = os.path.join(dest_dir, dest_path)
+    return os.path.normpath(dest_path)
 
 
-def move_file(srcPath, destPath, overwrite, simulate, ui):
-    ui.info("Move %s   ==>   %s" % (srcPath, destPath))
+def move_file(src_path, dest_path, overwrite, simulate, ui):
+    ui.info("Move %s   ==>   %s" % (src_path, dest_path))
     if not simulate:
         try:
-            destDir = os.path.dirname(destPath)
-            if not os.path.exists(destDir):
-                os.makedirs(destDir, exist_ok=True)
+            dest_path = os.path.dirname(dest_path)
+            if not os.path.exists(dest_path):
+                os.makedirs(dest_path, exist_ok=True)
 
-            if not overwrite and os.path.isfile(destPath):
-                destPath = create_new_filename(destPath)
-                ui.info("Renamed moved file to %s" % destPath)
-                shutil.move(srcPath, destPath)
+            if not overwrite and os.path.isfile(dest_path):
+                dest_path = create_new_filename(dest_path)
+                ui.info("Renamed moved file to %s" % dest_path)
+                shutil.move(src_path, dest_path)
                 ui.inc_moved_renamed()
             else:
-                shutil.move(srcPath, destPath)
+                shutil.move(src_path, dest_path)
                 ui.inc_moved()
         except:
             ui.error("Failed to move %s to %s" %
-                (srcPath, destPath))
+                (src_path, dest_path))
             ui.inc_error()
             pass
 
