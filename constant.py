@@ -1,3 +1,3 @@
 HASHFILE = "__hashes.txt"
 NOHASHFILE = "__nohashes.txt"
-USE_THREADS = False
+USE_THREADS = True

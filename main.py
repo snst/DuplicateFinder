@@ -376,6 +376,8 @@ class App(QWidget):
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
         self.add_hashes_option_to_menu(menu, selectedPath)
+        if os.path.isfile(selectedPath):
+            menu.addAction("Find file in HashDB", lambda: self.handle_find_duplicate_file_in_hashDB_and_show_infobox(selectedPath))
         menu.addAction("Open", lambda: self.handle_open_files([selectedPath]))
         menu.exec_(tree.viewport().mapToGlobal(position))
 

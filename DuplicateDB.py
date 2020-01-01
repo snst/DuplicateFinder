@@ -32,7 +32,6 @@ class DuplicateDB:
     def is_in_filter_path(self, path, files):
         if not path:
             return True
-        path = path + os.path.sep
         for filename in files:
             if filename.startswith(path):
                 return True
@@ -40,6 +39,8 @@ class DuplicateDB:
 
 
     def show_duplicates(self, path = None):
+        if path and not path.endswith(os.path.sep):
+            path = path + os.path.sep
         duplicates_found = False
         for hash, files in self.map.items():
             if len(files) > 1:
