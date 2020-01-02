@@ -205,12 +205,15 @@ class App(QWidget):
         self.masterDirEdit.setText(str)
 
 
-    def handle_keep_files_in_this_folder_move_duplicates(self, filename):
+    def handle_keep_files_in_this_folder_move_duplicates(self, filename, with_subfolders):
         self.ui.reset()
-        master_dir = os.path.dirname(filename)
+        if os.path.isfile(filename):
+            master_dir = os.path.dirname(filename)
+        else:
+            master_dir = filename if filename.endswith(os.path.sep) else filename + os.path.sep
         dest_dir = self.get_mover_dest_dir()
         if None != master_dir and None != dest_dir:
-            self.collector.move_duplicates_with_master_dir(master_dir, dest_dir, self.is_flat_move(), self.is_simulation())
+            self.collector.move_duplicates_with_master_dir(master_dir, dest_dir, self.is_flat_move(), with_subfolders, self.is_simulation())
 
 
     def handle_open_files(self, filenames):
@@ -343,7 +346,7 @@ class App(QWidget):
             menu.addAction("Open", lambda: self.handle_open_files(filenames))
             menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
             menu.addAction("Move selected files", lambda: self.handle_move_files(filenames, self.is_flat_move()))
-            menu.addAction("Keep files in this folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0]))
+            menu.addAction("Keep files in this folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0], False))
 
         menu.exec_(self.list_output.viewport().mapToGlobal(position))
 
@@ -375,6 +378,8 @@ class App(QWidget):
         menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
+        if os.path.isdir(selectedPath):
+            menu.addAction("Keep files in this path, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(selectedPath, True))
         self.add_hashes_option_to_menu(menu, selectedPath)
         if os.path.isfile(selectedPath):
             menu.addAction("Find file in HashDB", lambda: self.handle_find_duplicate_file_in_hashDB_and_show_infobox(selectedPath))

@@ -204,23 +204,26 @@ class Collector(QThread):
             self.worker()
 
 
-    def move_duplicates_with_master_dir(self, master_path, dest_dir, move_flat, simulate):
+    def move_duplicates_with_master_dir(self, master_path, dest_dir, move_flat, with_subfolders, simulate):
         self.arg_master_path = master_path
         self.arg_dest_dir = dest_dir
         self.arg_move_flat = move_flat
         self.arg_simulate = simulate
+        self.arg_with_subfolders = with_subfolders
         self.worker = self.move_duplicates_with_master_dir_worker
         self.exec()
 
 
     def move_duplicates_with_master_dir_worker(self):
-        filenames = self.duplicate_db.get_list_with_files_to_move_keep_master_path(self.arg_master_path)
+        filenames = self.duplicate_db.get_list_with_files_to_move_keep_master_path(self.arg_master_path, self.arg_with_subfolders)
         self.move_files(filenames, self.arg_move_flat, self.arg_dest_dir, self.arg_simulate)
 
 
     def move_files(self, filenames, move_flat, dest_dir, is_simulation):
         self.ui.reset()
         for filename in filenames:
+            if self.ui.is_abort():
+                break
             path = common.create_duplicate_dest_path(filename, dest_dir, move_flat)
             common.move_file(filename, path, False, is_simulation, self.ui)
             if not is_simulation:

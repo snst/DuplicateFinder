@@ -39,12 +39,14 @@ class DuplicateDB:
 
 
     def show_duplicates(self, path = None):
+        map2 = {}
         if path and not path.endswith(os.path.sep):
             path = path + os.path.sep
         duplicates_found = False
         for hash, files in self.map.items():
             if len(files) > 1:
                 if self.is_in_filter_path(path, files):
+                    map2[hash] = files
                     if not duplicates_found:
                         duplicates_found = True
                         self.ui.info("Duplicates found:")
@@ -53,23 +55,27 @@ class DuplicateDB:
                     for filename in files:
                         self.ui.file("%s" % filename)
                         self.ui.inc_file_duplicates()
-                    #cnt_duplicates -= 1 # decrement for original
-        #self.ui.info("Finished finding duplicates. Found hashes: %d, files: %d" % (cnt_hashes, cnt_duplicates))
-        #if not duplicates_found:
-        #    self.ui.info("No duplicates found.")
+        self.map = map2
 
 
-    def get_list_with_files_to_move_keep_master_path(self, master_path):
+    def get_list_with_files_to_move_keep_master_path(self, master_path, with_subfolders):
         self.ui.info("Start moving duplicates...")
         all_files_to_move = []
         for hash, files in self.map.items():
             if len(files) > 1:
+                files_to_move = None
                 for filename in files:
-                    p = os.path.dirname(filename)
-                    if p == master_path: # found master file to keep
-                        files_to_move = list(files)
+                    if with_subfolders:
+                        match = filename.startswith(master_path)
+                    else:
+                        p = os.path.dirname(filename)
+                        match = (p == master_path) # found master file to keep
+                    if match:
+                        if not files_to_move:
+                            files_to_move = list(files)
                         files_to_move.remove(filename)
-                        all_files_to_move.extend(files_to_move)
-                        break
+                if files_to_move:
+                    all_files_to_move.extend(files_to_move)
+                        
         return all_files_to_move
         
