@@ -9,7 +9,7 @@ import subprocess
 
 USER_ROLE_HASH = (Qt.UserRole + 1)
 
-class App(QWidget):
+class App(QMainWindow):
 
     def __init__(self):
         super().__init__()
@@ -46,6 +46,9 @@ class App(QWidget):
         self.splitter = QSplitter(Qt.Vertical)
         self.splitter_file = QSplitter(Qt.Horizontal)
 
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget) 
+
         self.model_l = self.create_file_model()
         self.tree_l = self.create_file_tree(self.model_l)
         self.tree_l.customContextMenuRequested.connect(self.open_menu_left)
@@ -79,8 +82,10 @@ class App(QWidget):
         checkbox_debug = QCheckBox("Debug")
         checkbox_debug.setChecked(False)
         checkbox_debug.stateChanged.connect(lambda:self.handle_debug_checkbox(checkbox_debug))
-
         layout_cmd.addWidget(checkbox_debug)
+
+        self.label_hash_cnt = QLabel("0")
+        layout_cmd.addWidget(self.label_hash_cnt)
 
         btn = QPushButton("Abort")
         btn.clicked.connect(lambda:self.handle_abort())
@@ -129,7 +134,8 @@ class App(QWidget):
 
         layout_window = QVBoxLayout()
         layout_window.addWidget(self.splitter)
-        self.setLayout(layout_window)
+        #self.setLayout(layout_window)
+        self.centralWidget().setLayout(layout_window)
 
         self.ui = logger
         self.collector = Collector(self.ui)
@@ -138,8 +144,12 @@ class App(QWidget):
         logger.log_hash.connect(self.log_hash)
         logger.log_info.connect(self.log_info)
         logger.log_error.connect(self.log_error)
+        logger.log_status.connect(self.log_status)
+        logger.log_hash_cnt.connect(self.log_hash_cnt)
         logger.log_file.connect(self.log_file)
         logger.enableDebug(checkbox_debug.isChecked())
+
+        self.statusBar().showMessage('.')
         self.show()
 
 
@@ -171,6 +181,13 @@ class App(QWidget):
         item.setBackground(QColor(255, 0, 0))
         self.list_output.addItem(item)
 
+    @pyqtSlot(str)
+    def log_status(self, str):
+        self.statusBar().showMessage(str)
+
+    @pyqtSlot(int)
+    def log_hash_cnt(self, val):
+        self.label_hash_cnt.setText(str(val))
 
     @pyqtSlot(str)
     def log_info(self, str):
@@ -374,6 +391,7 @@ class App(QWidget):
         menu.addAction("Scan dir", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.scan))
         menu.addAction("Verify hashes", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.verify))
         menu.addAction("Find duplicates in HashDB", lambda: self.handle_find_duplicates_in_hashDB(selectedPath))
+        menu.addAction("Unload HashDB", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.unload))
         menu.addSeparator()
         menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
         menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))

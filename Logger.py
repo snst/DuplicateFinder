@@ -7,10 +7,20 @@ class Logger(QObject):
     log_file = pyqtSignal(str)
     log_info = pyqtSignal(str)
     log_error = pyqtSignal(str)
+    log_status = pyqtSignal(str)
+    log_hash_cnt = pyqtSignal(int)
 
     def __init__(self):
         QObject.__init__(self)
         self.debugEnabled = True
+        pass
+
+    def status(self, str):
+        self.log_status.emit(str)
+        pass
+
+    def hash_cnt(self, int):
+        self.log_hash_cnt.emit(int)
         pass
 
     def error(self, str):

@@ -10,6 +10,7 @@ class CollectorCmd(Enum):
     load = 0
     scan = 1
     verify = 2
+    unload = 3
 
 class Collector(QThread):
 
@@ -83,11 +84,13 @@ class Collector(QThread):
     def add_dir_worker(self):
         self.ui.reset()
         self.add_dir_impl(self.argPath, self.argRecursive, self.argSkipExisting, self.argCmd)
+        self.ui.hash_cnt(len(self.map))
         self.ui.stats()
 
 
     def add_dir_impl2(self, path, recursive, skipExisting, cmd):
         dir = os.path.normpath(path)
+        self.ui.status(dir)
         if self.is_skip_dir(dir):
             self.ui.info("Skipping dir: %s" % dir)
             self.ui.inc_dir_skipped()
@@ -112,14 +115,37 @@ class Collector(QThread):
                 self.add_dir_impl2(dir, recursive, skipExisting, cmd)
                 if self.ui.is_abort():
                     return
+        self.ui.hash_cnt(len(self.map))
 
+
+    def remove_dir_from_hash_db(self, path, recursive):
+        to_remove = []
+        if recursive:
+            for db_path, db in self.map.items():
+                if db_path.startswith(path):
+                    to_remove.append(db_path)
+        else:
+            for db_path, db in self.map.items():
+                if db_path == path:
+                    to_remove.append(db_path)
+                    break
+        for p in to_remove:
+            self.ui.info("Remove hashDB: %s" % p)
+            self.map.pop(p, None)
+           
 
     def add_dir_impl(self, path, recursive, skipExisting, cmd):
-        self.duplicate_db.reset()
-        self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
-        self.add_dir_impl2(path, recursive, skipExisting, cmd)
-        self.ui.debug("Finished loading %d HashDB." % (len(self.map)))
-        self.duplicate_db.show_duplicates()
+
+        if cmd is CollectorCmd.unload:
+            self.ui.info("Unloading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
+            self.remove_dir_from_hash_db(path, recursive)
+            self.ui.debug("Finished unloading %d HashDB." % (len(self.map)))
+        else:
+            self.duplicate_db.reset()
+            self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
+            self.add_dir_impl2(path, recursive, skipExisting, cmd)
+            self.ui.debug("Finished loading %d HashDB." % (len(self.map)))
+            self.duplicate_db.show_duplicates()
 
 
     def remove_hash(self, path, hash):
