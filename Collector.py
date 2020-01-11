@@ -31,6 +31,7 @@ class Collector(QThread):
 
     def clear(self):
         self.map = {}
+        self.ui.hash_cnt(0)
 
 
     def add_dir(self, path, recursive, cmd, skipExisting):
@@ -39,14 +40,6 @@ class Collector(QThread):
         self.argCmd = cmd
         self.argSkipExisting = skipExisting
         self.worker = self.add_dir_worker
-        self.exec()
-
-
-    def find_extern_duplicates(self, srcDir, recursive, simulate):
-        self.argSrcDir = srcDir
-        self.argRecursive = recursive
-        self.arg_simulate = simulate
-        self.worker = self.find_extern_duplicates_worker
         self.exec()
 
 
@@ -145,7 +138,7 @@ class Collector(QThread):
             self.ui.info("Loading HashDB %sfrom: %s" % ('recursively ' if recursive else '', path))
             self.add_dir_impl2(path, recursive, skipExisting, cmd)
             self.ui.debug("Finished loading %d HashDB." % (len(self.map)))
-            self.duplicate_db.show_duplicates()
+            self.duplicate_db.show_duplicates(None, False)
 
 
     def remove_hash(self, path, hash):
@@ -173,33 +166,6 @@ class Collector(QThread):
         pass
 
 
-    def find_extern_duplicates_worker(self):
-        self.ui.reset()
-        self.find_extern_duplicates_impl(self.argSrcDir, self.argRecursive, self.arg_simulate)
-        self.ui.stats()
-
-    
-    def find_extern_duplicates_impl(self, srcDir, recursive, simulate):
-        self.ui.info("Duplicates found in %s:" % srcDir)
-        srcDirList = [srcDir]
-        if recursive:
-            srcDirList.extend(common.get_dir_list_absolute(srcDir, recursive))
-
-        for curSrcDir in srcDirList:
-            fileList = common.get_file_list(curSrcDir)
-
-            for filename in fileList:
-                srcFilepath = os.path.join(curSrcDir, filename)
-                hash = common.get_hash_from_file(srcFilepath, self.ui)
-                found_file = self.find_hash(hash)
-                if None != found_file:
-                    self.ui.inc_file_duplicates()
-                    self.ui.file(srcFilepath)
-
-        #self.ui.info("Finished finding duplicates. %d files" % (cntDuplicates))
-
-
-
     def find_duplicates_in_hashDB_impl(self):
         self.ui.info("Start finding duplicates in HashDB...")
         self.duplicate_db.reset()
@@ -213,12 +179,13 @@ class Collector(QThread):
 
     def find_and_show_duplicates_in_hashDB_worker(self):
         self.find_duplicates_in_hashDB_impl()
-        self.duplicate_db.show_duplicates(self.arg_path)
+        self.duplicate_db.show_duplicates(self.arg_path, self.arg_recursive)
         self.ui.stats()
 
 
-    def find_and_show_duplicates_in_hashDB(self, path):
+    def find_and_show_duplicates_in_hashDB(self, path, recursive):
         self.arg_path = path
+        self.arg_recursive = recursive
         self.worker = self.find_and_show_duplicates_in_hashDB_worker
         self.exec()
 
@@ -257,31 +224,4 @@ class Collector(QThread):
         if not is_simulation:
             self.save_hashes()
         self.ui.stats()
-
-
-    def find_and_show_duplicates_in_folder(self, path):
-        self.arg_path = path
-        self.worker = self.find_and_show_duplicates_in_folder_worker
-        self.exec()
-
-
-    def find_and_show_duplicates_in_folder_worker(self):
-        self.ui.reset()
-        self.find_and_show_duplicates_in_folder_impl(self.arg_path)
-        self.duplicate_db.show_duplicates(None)
-        self.ui.stats()
-
-
-    def find_and_show_duplicates_in_folder_impl(self, path):
-        self.duplicate_db.reset()
-        files = common.get_file_list(path)
-        self.ui.info("Scannning %d files for duplicates in %s" % (len(files), path))
-        for item in files:
-            if self.ui.is_abort():
-                return
-            self.ui.info("Hashing: %s" % item)
-            filepath = os.path.normpath(os.path.join(path, item))
-            hash = common.get_hash_from_file(filepath, self.ui)
-            self.duplicate_db.add_hash(hash, filepath)
-        self.ui.info("Finished finding duplicates.")
 

@@ -67,15 +67,15 @@ class App(QMainWindow):
 
         layout_cmd = QHBoxLayout()
 
-        self.checkbox_recursive = QCheckBox("Recursive")
+        self.checkbox_recursive = QCheckBox("With subfolders")
         self.checkbox_recursive.setChecked(True)
         layout_cmd.addWidget(self.checkbox_recursive)
 
-        self.checkbox_flat_move = QCheckBox("Flat move")
+        self.checkbox_flat_move = QCheckBox("Move flat")
         self.checkbox_flat_move.setChecked(False)
         layout_cmd.addWidget(self.checkbox_flat_move)
 
-        self.checkbox_simulate = QCheckBox("Simulate move")
+        self.checkbox_simulate = QCheckBox("Simulate only")
         self.checkbox_simulate.setChecked(False)
         layout_cmd.addWidget(self.checkbox_simulate)
 
@@ -84,7 +84,7 @@ class App(QMainWindow):
         checkbox_debug.stateChanged.connect(lambda:self.handle_debug_checkbox(checkbox_debug))
         layout_cmd.addWidget(checkbox_debug)
 
-        self.label_hash_cnt = QLabel("0")
+        self.label_hash_cnt = QLabel("")
         layout_cmd.addWidget(self.label_hash_cnt)
 
         btn = QPushButton("Abort")
@@ -187,7 +187,7 @@ class App(QMainWindow):
 
     @pyqtSlot(int)
     def log_hash_cnt(self, val):
-        self.label_hash_cnt.setText(str(val))
+        self.label_hash_cnt.setText("Dirs: %d" % val)
 
     @pyqtSlot(str)
     def log_info(self, str):
@@ -222,15 +222,17 @@ class App(QMainWindow):
         self.masterDirEdit.setText(str)
 
 
-    def handle_keep_files_in_this_folder_move_duplicates(self, filename, with_subfolders):
+    def handle_keep_files_in_this_folder_move_duplicates(self, path):
         self.ui.reset()
-        if os.path.isfile(filename):
-            master_dir = os.path.dirname(filename)
-        else:
-            master_dir = filename if filename.endswith(os.path.sep) else filename + os.path.sep
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+
+        if not path.endswith(os.path.sep):
+            path = path + os.path.sep
+
         dest_dir = self.get_mover_dest_dir()
-        if None != master_dir and None != dest_dir:
-            self.collector.move_duplicates_with_master_dir(master_dir, dest_dir, self.is_flat_move(), with_subfolders, self.is_simulation())
+        if None != path and None != dest_dir:
+            self.collector.move_duplicates_with_master_dir(path, dest_dir, self.is_flat_move(), self.is_recursive(), self.is_simulation())
 
 
     def handle_open_files(self, filenames):
@@ -265,10 +267,6 @@ class App(QMainWindow):
         return self.checkbox_flat_move.isChecked()
 
 
-    def handle_find_duplicates_in_folder(self, path):
-        self.collector.find_and_show_duplicates_in_folder(path)
-
-
     def set_default_dest_dir(self, path):
         dest = self.duplicateDesitinationDirEdit.text()
         if not dest:
@@ -283,7 +281,7 @@ class App(QMainWindow):
 
     def handle_find_duplicates_in_hashDB(self, path):
         self.ui.reset()
-        self.collector.find_and_show_duplicates_in_hashDB(path)
+        self.collector.find_and_show_duplicates_in_hashDB(path, self.is_recursive())
 
 
     def handle_clear_hashDB(self):
@@ -329,11 +327,6 @@ class App(QMainWindow):
         self.duplicateDesitinationDirEdit.setText(path)
         
 
-    def handle_find_extern_duplicates(self, srcDir, recursive):
-        self.ui.reset()
-        self.collector.find_extern_duplicates(srcDir = srcDir, recursive=recursive, simulate=self.is_simulation())
-
-
     def handle_find_duplicate_file_in_hashDB_and_show_infobox(self, filename):
         if os.path.isfile(filename):
             hash = common.get_hash_from_file(filename, self.ui)
@@ -363,7 +356,7 @@ class App(QMainWindow):
             menu.addAction("Open", lambda: self.handle_open_files(filenames))
             menu.addAction("Open folder", lambda: self.handle_open_folders(filenames))
             menu.addAction("Move selected files", lambda: self.handle_move_files(filenames, self.is_flat_move()))
-            menu.addAction("Keep files in this folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0], False))
+            menu.addAction("Keep files in this (sub)folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(filenames[0]))
 
         menu.exec_(self.list_output.viewport().mapToGlobal(position))
 
@@ -393,11 +386,9 @@ class App(QMainWindow):
         menu.addAction("Find duplicates in HashDB", lambda: self.handle_find_duplicates_in_hashDB(selectedPath))
         menu.addAction("Unload HashDB", lambda: self.handle_collector_process_dir(selectedPath, recursive = self.is_recursive(), cmd = CollectorCmd.unload))
         menu.addSeparator()
-        menu.addAction("Scan extern dir for duplicates in HashDB", lambda: self.handle_find_extern_duplicates(selectedPath, recursive = self.is_recursive()))
-        menu.addAction("Scan extern dir for duplicates (no HashDB)", lambda: self.handle_find_duplicates_in_folder(selectedPath))
         menu.addAction("Set duplicates dest dir", lambda: self.handle_set_mover_dest_dir(selectedPath))
         if os.path.isdir(selectedPath):
-            menu.addAction("Keep files in this path, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(selectedPath, True))
+            menu.addAction("Keep files in this (sub)folder, move other duplicates", lambda: self.handle_keep_files_in_this_folder_move_duplicates(selectedPath))
         self.add_hashes_option_to_menu(menu, selectedPath)
         if os.path.isfile(selectedPath):
             menu.addAction("Find file in HashDB", lambda: self.handle_find_duplicate_file_in_hashDB_and_show_infobox(selectedPath))

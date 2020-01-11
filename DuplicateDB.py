@@ -29,23 +29,28 @@ class DuplicateDB:
         return value
         
 
-    def is_in_filter_path(self, path, files):
+    def is_in_filter_path(self, path, with_subpath, files):
         if not path:
             return True
         for filename in files:
-            if filename.startswith(path):
-                return True
+            if with_subpath:
+                if filename.startswith(path):
+                    return True
+            else:
+                p = os.path.dirname(filename) + os.sep
+                if p == path:
+                    return True
         return False
 
 
-    def show_duplicates(self, path = None):
+    def show_duplicates(self, path, with_subpath):
         map2 = {}
         if path and not path.endswith(os.path.sep):
             path = path + os.path.sep
         duplicates_found = False
         for hash, files in self.map.items():
             if len(files) > 1:
-                if self.is_in_filter_path(path, files):
+                if self.is_in_filter_path(path, with_subpath, files):
                     map2[hash] = files
                     if not duplicates_found:
                         duplicates_found = True
@@ -68,7 +73,7 @@ class DuplicateDB:
                     if with_subfolders:
                         match = filename.startswith(master_path)
                     else:
-                        p = os.path.dirname(filename)
+                        p = os.path.dirname(filename) + os.path.sep
                         match = (p == master_path) # found master file to keep
                     if match:
                         if not files_to_move:
